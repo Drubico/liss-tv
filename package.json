@@ -7,6 +7,7 @@
     "build:scripts": "esbuild scripts/sync-urls.ts --bundle --platform=node --format=cjs --packages=external --outfile=dist/sync-urls.js",
     "build": "next build && npm run build:scripts",
     "start": "next start",
+    "test": "node --import ./tests/register.mjs --test tests/**/*.test.ts tests/**/**/*.test.ts",
     "lint": "eslint",
     "sync:urls": "node sync-urls.js"
   },

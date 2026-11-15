@@ -4,7 +4,9 @@ import {
   GetUrl,
   gnrdUnpack,
 } from "../../../strategies/gnula/get-url.operation.ts";
-import { Response } from "node-fetch";
+import { Response, type RequestInit } from "node-fetch";
+
+type GnulaMockFetch = (endpointOrUrl: string, options?: RequestInit) => Promise<Response>;
 
 test("gnrdUnpack decodes base64 XOR payload with key [103, 78, 55, 100]", () => {
   const payload = {
@@ -71,15 +73,16 @@ test("GetUrl resolves Vidara server into direct M3U8 stream", async () => {
   let playerRequested = false;
   let vidaraResolved = false;
 
-  const mockFetch = async (url: string, init?: any) => {
+  const mockFetch: GnulaMockFetch = async (url: string, init?: RequestInit) => {
     if (url.includes("street-fighter")) {
       return new Response(pageHtml, { status: 200 });
     }
 
     if (url.includes("/wp-json/gnrd/v1/player")) {
       playerRequested = true;
-      assert.strictEqual(init?.headers?.["X-Gn-Scr"] !== undefined, true);
-      assert.strictEqual(init?.headers?.["X-Gn-Dev"] !== undefined, true);
+      const headers = init?.headers as Record<string, string> | undefined;
+      assert.strictEqual(headers?.["X-Gn-Scr"] !== undefined, true);
+      assert.strictEqual(headers?.["X-Gn-Dev"] !== undefined, true);
       return new Response(JSON.stringify({ p: packedBase64 }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -100,7 +103,7 @@ test("GetUrl resolves Vidara server into direct M3U8 stream", async () => {
     return new Response("Not found", { status: 404 });
   };
 
-  const getUrl = new GetUrl(mockFetch as any);
+  const getUrl = new GetUrl(mockFetch);
   const result = await getUrl.operation("/ver/street-fighter/");
 
   assert.strictEqual(playerRequested, true);
@@ -140,7 +143,7 @@ test("GetUrl resolves SaveFiles server to master.m3u8", async () => {
   const encoded = Buffer.from(jsonStr, "utf-8").map((byte, i) => byte ^ key[i & 3]);
   const packedBase64 = Buffer.from(encoded).toString("base64");
 
-  const mockFetch = async (url: string) => {
+  const mockFetch: GnulaMockFetch = async (url: string) => {
     if (url.includes("the-last-of-us-2x07")) {
       return new Response(pageHtml, { status: 200 });
     }
@@ -162,7 +165,7 @@ test("GetUrl resolves SaveFiles server to master.m3u8", async () => {
     return new Response("Not found", { status: 404 });
   };
 
-  const getUrl = new GetUrl(mockFetch as any);
+  const getUrl = new GetUrl(mockFetch);
   const result = await getUrl.operation("/the-last-of-us-2x07/");
 
   assert.strictEqual(
@@ -200,7 +203,7 @@ test("GetUrl falls back to embed URL when stream resolution fails", async () => 
   const encoded = Buffer.from(jsonStr, "utf-8").map((byte, i) => byte ^ key[i & 3]);
   const packedBase64 = Buffer.from(encoded).toString("base64");
 
-  const mockFetch = async (url: string) => {
+  const mockFetch: GnulaMockFetch = async (url: string) => {
     if (url.includes("fallback-test")) {
       return new Response(pageHtml, { status: 200 });
     }
@@ -218,7 +221,7 @@ test("GetUrl falls back to embed URL when stream resolution fails", async () => 
     return new Response("Not found", { status: 404 });
   };
 
-  const getUrl = new GetUrl(mockFetch as any);
+  const getUrl = new GetUrl(mockFetch);
   const result = await getUrl.operation("/ver/fallback-test/");
 
   assert.strictEqual(result.url, "https://vidaraa.cc/e/failedCode");
@@ -235,7 +238,7 @@ test("GetUrl throws Error when no servers are available", async () => {
     </html>
   `;
 
-  const mockFetch = async (url: string) => {
+  const mockFetch: GnulaMockFetch = async (url: string) => {
     if (url.includes("empty-servers")) {
       return new Response(pageHtml, { status: 200 });
     }
@@ -245,7 +248,7 @@ test("GetUrl throws Error when no servers are available", async () => {
     return new Response("Not found", { status: 404 });
   };
 
-  const getUrl = new GetUrl(mockFetch as any);
+  const getUrl = new GetUrl(mockFetch);
   await assert.rejects(
     () => getUrl.operation("/ver/empty-servers/"),
     /No streaming servers found/
