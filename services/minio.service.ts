@@ -6,9 +6,12 @@ import { rewriteManifest } from "@/utils/m3u8";
 import { isManifestReusable } from "@/utils/m3u8-validator";
 import type { AnyProxyAgent } from "@/types/proxy";
 
-const MINIO_ENDPOINT = process.env.MINIO_ENDPOINT || "localhost";
-const MINIO_PORT = parseInt(process.env.MINIO_PORT || "9000", 10);
 const MINIO_USE_SSL = process.env.MINIO_USE_SSL === "true";
+const MINIO_ENDPOINT = process.env.MINIO_ENDPOINT || "localhost";
+const MINIO_PORT = parseInt(
+  process.env.MINIO_PORT || (MINIO_USE_SSL ? "443" : "9000"),
+  10,
+);
 const MINIO_ROOT_USER =
   process.env.MINIO_ROOT_USER ||
   process.env.MINIO_ACCESS_KEY ||
