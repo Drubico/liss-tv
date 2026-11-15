@@ -1,13 +1,8 @@
 import { MovieContext } from "@/strategies/context";
 import { GetAll } from "@/strategies/gnula/get-all.operation";
 import { GetDetail } from "@/strategies/gnula/get-detail.operation";
-import type { MovieBuilder, StrategyGetUrl, Url } from "@/types/movie";
-
-class GetUrl implements StrategyGetUrl {
-  async operation(_path: string): Promise<Url> {
-    throw new Error("[Gnula] GetUrl not implemented yet");
-  }
-}
+import { GetUrl } from "@/strategies/gnula/get-url.operation";
+import type { MovieBuilder } from "@/types/movie";
 
 export class GnulaMovieBuilder implements MovieBuilder<MovieContext> {
   name: string = "Gnula HD";
@@ -23,3 +18,4 @@ export class GnulaMovieBuilder implements MovieBuilder<MovieContext> {
     );
   }
 }
+
