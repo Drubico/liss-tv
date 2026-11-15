@@ -23,6 +23,7 @@ export function ProviderSelector() {
   const [providers, setProviders] = useState<ProviderOption[]>([
     { id: "gnula", name: "Gnula HD" },
     { id: "solo-latino", name: "Solo Latino" },
+    { id: "poseidon", name: "Poseidon HD" },
   ]);
 
   useEffect(() => {
