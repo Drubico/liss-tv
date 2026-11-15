@@ -17,9 +17,6 @@ export class DriverRegistry {
 
       const soloLatinoContext = MovieContextFactory.driver("solo-latino");
       this.register(new CachedDriverDecorator(soloLatinoContext));
-
-      const poseidonContext = MovieContextFactory.driver("poseidon");
-      this.register(new CachedDriverDecorator(poseidonContext));
     } catch (err) {
       console.warn("[DriverRegistry] Warning initializing built-in drivers:", err);
     }

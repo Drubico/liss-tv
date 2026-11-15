@@ -1,14 +1,12 @@
 import { MovieContext } from "@/strategies/context";
 import { SoloLatinoMovieBuilder } from "./solo-latino.build";
 import { GnulaMovieBuilder } from "./gnula.build";
-import { PoseidonMovieBuilder } from "./poseidon.build";
 import type { MovieBuilder } from "@/types/movie";
 
 export class MovieContextFactory {
   private static providers: { [key: string]: MovieBuilder<MovieContext> } = {
     "solo-latino": new SoloLatinoMovieBuilder(),
     gnula: new GnulaMovieBuilder(),
-    poseidon: new PoseidonMovieBuilder(),
   };
 
   private constructor() {}
@@ -21,11 +19,7 @@ export class MovieContextFactory {
     return new GnulaMovieBuilder().build();
   }
 
-  static createPoseidonContext(): MovieContext {
-    return new PoseidonMovieBuilder().build();
-  }
-
-  static driver(name: "solo-latino" | "gnula" | "poseidon"): MovieContext {
+  static driver(name: "solo-latino" | "gnula"): MovieContext {
     const builder = MovieContextFactory.providers[name];
 
     if (!builder) {
