@@ -28,6 +28,11 @@ test("Live: Poseidon driver searches movies successfully", async () => {
     m.title.toLowerCase().includes("batman"),
   );
   assert.ok(batman, "Should contain at least one Batman title");
+
+  // Test TitleCase query (which used to trigger upstream 502/504 on Poseidon)
+  const holaResults = await driver.getAll({ search: "Hola" });
+  assert.ok(holaResults, "Search results for 'Hola' should be returned");
+  assert.ok(Array.isArray(holaResults.movies), "Movies should be an array");
 });
 
 test("Live: Poseidon driver gets movie detail and resolves Latino Vidara stream", async () => {

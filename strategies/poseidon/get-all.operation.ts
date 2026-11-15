@@ -60,7 +60,11 @@ export class GetAll implements StrategyGetAllMovies {
       let endpoint: string;
 
       if (search && search.trim().length > 0) {
-        endpoint = `search?q=${encodeURIComponent(search.trim())}&page=${pageNumber}`;
+        const cleanSearch = search.trim().toLowerCase();
+        endpoint =
+          pageNumber > 1
+            ? `search?q=${encodeURIComponent(cleanSearch)}&page=${pageNumber}`
+            : `search?q=${encodeURIComponent(cleanSearch)}`;
       } else if (slug === "series" || slug === "/series") {
         endpoint = pageNumber > 1 ? `series?page=${pageNumber}` : "series";
       } else {
@@ -88,6 +92,17 @@ export class GetAll implements StrategyGetAllMovies {
         hasMore,
       };
     } catch (error) {
+      if (search) {
+        console.warn(
+          `[Poseidon] Search query "${search}" failed or timed out upstream, returning empty result:`,
+          error instanceof Error ? error.message : error,
+        );
+        return {
+          movies: [],
+          lastPageNumber: 1,
+          hasMore: false,
+        };
+      }
       console.error("[Poseidon] GetAll operation failed:", error);
       return undefined;
     }
