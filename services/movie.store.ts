@@ -1,7 +1,7 @@
-import Database, { Database as DatabaseType } from "better-sqlite3";
+import Database, { type Database as DatabaseType } from "better-sqlite3";
 import fs from "fs";
 import path from "path";
-import { StoredMovie } from "../types/movie";
+import type { StoredMovie } from "../types/movie";
 
 const DB_PATH = path.join(process.cwd(), "data", "movies.db");
 

@@ -1,4 +1,4 @@
-import { Season } from "./domain";
+import type { Season } from "./domain";
 
 export interface EpisodeListProps {
   title: string;

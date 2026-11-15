@@ -4,9 +4,9 @@ import {
   getManifestPublicUrl,
   saveManifestFromUpstream,
   normalizeMoviePath,
-  SaveManifestOptions,
+  type SaveManifestOptions,
 } from "@/services/minio.service";
-import { Url } from "@/types/movie";
+import type { Url } from "@/types/movie";
 
 /**
  * Resolves a cached stream URL from either MinIO bucket or persistent store.

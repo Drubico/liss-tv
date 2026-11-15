@@ -1,4 +1,4 @@
-import { Movies, StoredMovie, Url } from "./domain";
+import type { Movies, StoredMovie, Url } from "./domain";
 
 export interface DriverQuery {
   search?: string;

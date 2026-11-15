@@ -2,7 +2,7 @@ export * from "./domain";
 export * from "./driver";
 export * from "./ui";
 
-import { Movies, StoredMovie } from "./domain";
+import type { Movies, StoredMovie } from "./domain";
 
 export abstract class MovieService {
   abstract getAll(
