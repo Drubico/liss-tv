@@ -68,7 +68,7 @@ export class GetUrl implements StrategyGetUrl {
         const cleanPath = path.replace(/^\/+/, "");
         const response = await poseidonFetch(cleanPath);
         const html = await response.text();
-        const nextData = extractNextData<PoseidonPageProps>(html);
+        const nextData = extractNextData(html);
 
         videos =
           nextData?.props?.pageProps?.thisMovie?.videos ||

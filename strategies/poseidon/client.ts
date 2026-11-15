@@ -16,7 +16,7 @@ export const POSEIDON_DEFAULT_HEADERS: Record<string, string> = {
  */
 export function extractNextData<T = PoseidonNextData>(html: string): T {
   const match = html.match(
-    /<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/,
+    /<script\b[^>]*\bid=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i,
   );
 
   if (!match || !match[1]) {

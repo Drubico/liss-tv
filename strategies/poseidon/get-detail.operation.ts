@@ -70,7 +70,7 @@ export function mapPoseidonSerieDetail(
   const cleanSlug = rawSlug.replace(/^series\/[^/]+\/?/, "") || rawSlug.replace(/^.*\/|\/$/g, "");
 
   const seasons: Season[] = (serie.seasons || [])
-    .filter((s) => s.number > 0 && s.episodes && s.episodes.length > 0)
+    .filter((s) => s.episodes && s.episodes.length > 0)
     .map((s) => {
       const episodes: Episode[] = (s.episodes || []).map((ep) => {
         const epNum = String(ep.number);
@@ -84,6 +84,7 @@ export function mapPoseidonSerieDetail(
           title: epTitle,
           image: epImage,
           link: epLink,
+          caption: ep.title || "",
           context: {
             tmdbId,
             season: sNum,
@@ -129,7 +130,7 @@ export class GetDetail implements StrategyGetMovieDetails {
 
       const response = await poseidonFetch(cleanPath);
       const html = await response.text();
-      const nextData = extractNextData<PoseidonPageProps>(html);
+      const nextData = extractNextData(html);
 
       if (isSerie && nextData?.props?.pageProps?.thisSerie) {
         return mapPoseidonSerieDetail(nextData.props.pageProps.thisSerie, cleanPath);

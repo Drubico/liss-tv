@@ -64,8 +64,11 @@ export class GetAll implements StrategyGetAllMovies {
 
       const response = await poseidonFetch(endpoint);
       const html = await response.text();
-      const nextData = extractNextData<PoseidonPageProps>(html);
-      const rawMovies = nextData?.props?.pageProps?.movies || [];
+      const nextData = extractNextData(html);
+      const rawMovies =
+        nextData?.props?.pageProps?.movies ||
+        nextData?.props?.pageProps?.series ||
+        [];
 
       const movies: Movie[] = rawMovies
         .map(mapPoseidonItemToMovie)
