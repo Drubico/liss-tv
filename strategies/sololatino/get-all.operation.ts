@@ -1,7 +1,7 @@
 import { getAllData, upsertAll } from "@/services/movie.store";
 import { fetchFlare, isBannedResponse } from "@/utils/flaresolverr";
 import * as cheerio from "cheerio";
-import { Movie, Movies, StrategyGetAllMovies } from "@/types/movie";
+import type { Movie, Movies, StrategyGetAllMovies } from "@/types/movie";
 import { BASE_URL } from "@/utils/browser";
 
 interface SoloLatinoSuggestItem {

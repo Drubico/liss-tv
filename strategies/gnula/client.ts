@@ -1,5 +1,5 @@
 import https from "https";
-import nodeFetch, { RequestInit, Response } from "node-fetch";
+import nodeFetch, { type RequestInit, type Response } from "node-fetch";
 
 export const GNULA_BASE_URL = "https://ww3.gnulahd.nu/";
 

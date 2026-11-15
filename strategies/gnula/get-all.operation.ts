@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import { Movie, Movies, StrategyGetAllMovies } from "@/types/movie";
+import type { Movie, Movies, StrategyGetAllMovies } from "@/types/movie";
 import { getAllData, upsertAll } from "@/services/movie.store";
 import { gnulaFetch } from "./client";
 

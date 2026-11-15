@@ -1,7 +1,7 @@
 import { MovieContext } from "@/strategies/context";
 import { GetAll } from "@/strategies/gnula/get-all.operation";
 import { GetDetail } from "@/strategies/gnula/get-detail.operation";
-import { MovieBuilder, StrategyGetUrl, Url } from "@/types/movie";
+import type { MovieBuilder, StrategyGetUrl, Url } from "@/types/movie";
 
 class GetUrl implements StrategyGetUrl {
   async operation(_path: string): Promise<Url> {

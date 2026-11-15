@@ -1,6 +1,6 @@
-import { Action } from "@/types/action";
+import type { Action } from "@/types/action";
 
-import TorControl, { TorControlStatus } from "tor-control";
+import TorControl, { type TorControlStatus } from "tor-control";
 
 export const torControl = new TorControl({
   host: "127.0.0.1",

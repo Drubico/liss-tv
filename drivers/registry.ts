@@ -1,4 +1,4 @@
-import { MovieDriver } from "@/types/movie";
+import type { MovieDriver } from "@/types/movie";
 import { MovieContextFactory } from "@/builder/factory";
 import { CachedDriverDecorator } from "./cached-driver.decorator";
 
@@ -17,6 +17,9 @@ export class DriverRegistry {
 
       const soloLatinoContext = MovieContextFactory.driver("solo-latino");
       this.register(new CachedDriverDecorator(soloLatinoContext));
+
+      const poseidonContext = MovieContextFactory.driver("poseidon");
+      this.register(new CachedDriverDecorator(poseidonContext));
     } catch (err) {
       console.warn("[DriverRegistry] Warning initializing built-in drivers:", err);
     }

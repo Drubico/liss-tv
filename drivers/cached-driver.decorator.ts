@@ -1,9 +1,13 @@
-import { DriverQuery, GetUrlOptions, MovieDriver, Movies, StoredMovie, Url } from "@/types/movie";
+import type { DriverQuery, GetUrlOptions, MovieDriver, Movies, StoredMovie, Url } from "@/types/movie";
 import { get, getAllData, upsert, upsertAll } from "@/services/movie.store";
 import { resolveCachedStream } from "@/services/stream-cache.service";
 
 export class CachedDriverDecorator implements MovieDriver {
-  constructor(private readonly innerDriver: MovieDriver) {}
+  private readonly innerDriver: MovieDriver;
+
+  constructor(innerDriver: MovieDriver) {
+    this.innerDriver = innerDriver;
+  }
 
   get id(): string {
     return this.innerDriver.id;

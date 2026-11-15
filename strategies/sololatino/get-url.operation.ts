@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { get, remove } from "@/services/movie.store";
 import nodeFetch from "node-fetch";
-import { StrategyGetUrl, Url } from "@/types/movie";
+import type { StrategyGetUrl, Url } from "@/types/movie";
 import {
   getLinkMediafire,
   isUrlMediafire,
