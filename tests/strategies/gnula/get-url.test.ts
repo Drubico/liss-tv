@@ -1,0 +1,253 @@
+import test from "node:test";
+import assert from "node:assert";
+import {
+  GetUrl,
+  gnrdUnpack,
+} from "../../../strategies/gnula/get-url.operation.ts";
+import { Response } from "node-fetch";
+
+test("gnrdUnpack decodes base64 XOR payload with key [103, 78, 55, 100]", () => {
+  const payload = {
+    langs: [
+      {
+        label: "Latino",
+        servers: [
+          { title: "Servidor 1", src: "https://vidaraa.cc/e/TonyrXmWc1Ie0" },
+          { title: "Servidor 2", src: "https://savefiles.com/e/xneh0s576go9" },
+        ],
+      },
+    ],
+  };
+
+  const jsonStr = JSON.stringify(payload);
+  const key = [103, 78, 55, 100];
+  const encoded = Buffer.from(jsonStr, "utf-8").map((byte, i) => byte ^ key[i & 3]);
+  const base64 = Buffer.from(encoded).toString("base64");
+
+  const unpacked = gnrdUnpack(base64);
+  assert.ok(unpacked);
+  assert.strictEqual(unpacked.langs?.[0]?.servers?.[0]?.src, "https://vidaraa.cc/e/TonyrXmWc1Ie0");
+  assert.strictEqual(unpacked.langs?.[0]?.servers?.[1]?.src, "https://savefiles.com/e/xneh0s576go9");
+});
+
+test("gnrdUnpack returns null on invalid or corrupted base64", () => {
+  assert.strictEqual(gnrdUnpack("not_valid_base64_json!@#$"), null);
+  assert.strictEqual(gnrdUnpack(""), null);
+});
+
+test("GetUrl resolves Vidara server into direct M3U8 stream", async () => {
+  const pageHtml = `
+    <html>
+      <head>
+        <script>
+          var _gnrdPid = 509498;
+          var _gnrdTok = "9214fc6adf84c03b34ced7a62a794072";
+        </script>
+        <script>
+          var RESOLVE='/panel/the-tube-resolve.php?code=', AUTH='&t=auth123';
+          var VD_RESOLVE='/panel/vidara-resolve.php', VD_AUTH='&t=vdauth456';
+          var SF_RESOLVE='/panel/savefiles-resolve.php', SF_AUTH='&t=sfauth789';
+        </script>
+      </head>
+      <body></body>
+    </html>
+  `;
+
+  const payload = {
+    langs: [
+      {
+        label: "Latino",
+        servers: [
+          { title: "Servidor 1", src: "https://vidaraa.cc/e/TonyrXmWc1Ie0" },
+        ],
+      },
+    ],
+  };
+  const jsonStr = JSON.stringify(payload);
+  const key = [103, 78, 55, 100];
+  const encoded = Buffer.from(jsonStr, "utf-8").map((byte, i) => byte ^ key[i & 3]);
+  const packedBase64 = Buffer.from(encoded).toString("base64");
+
+  let playerRequested = false;
+  let vidaraResolved = false;
+
+  const mockFetch = async (url: string, init?: any) => {
+    if (url.includes("street-fighter")) {
+      return new Response(pageHtml, { status: 200 });
+    }
+
+    if (url.includes("/wp-json/gnrd/v1/player")) {
+      playerRequested = true;
+      assert.strictEqual(init?.headers?.["X-Gn-Scr"] !== undefined, true);
+      assert.strictEqual(init?.headers?.["X-Gn-Dev"] !== undefined, true);
+      return new Response(JSON.stringify({ p: packedBase64 }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (url.includes("/panel/vidara-resolve.php")) {
+      vidaraResolved = true;
+      assert.strictEqual(url.includes("code=TonyrXmWc1Ie0"), true);
+      assert.strictEqual(url.includes("host=vidaraa.cc"), true);
+      assert.strictEqual(url.includes("t=vdauth456"), true);
+      return new Response("#EXTM3U\n#EXTINF:5,\nhttps://cdn.example.com/seg1.woff2", {
+        status: 200,
+        headers: { "Content-Type": "application/vnd.apple.mpegurl" },
+      });
+    }
+
+    return new Response("Not found", { status: 404 });
+  };
+
+  const getUrl = new GetUrl(mockFetch as any);
+  const result = await getUrl.operation("/ver/street-fighter/");
+
+  assert.strictEqual(playerRequested, true);
+  assert.strictEqual(vidaraResolved, true);
+  assert.strictEqual(
+    result.url,
+    "https://ww3.gnulahd.nu/panel/vidara-resolve.php?pl=1&code=TonyrXmWc1Ie0&host=vidaraa.cc&t=vdauth456"
+  );
+  assert.strictEqual(result.fallbackUrl, "https://vidaraa.cc/e/TonyrXmWc1Ie0");
+});
+
+test("GetUrl resolves SaveFiles server to master.m3u8", async () => {
+  const pageHtml = `
+    <html>
+      <script>
+        var _gnrdPid = 182607;
+        var _gnrdTok = "tok_episode";
+      </script>
+      <script>
+        var SF_RESOLVE='/panel/savefiles-resolve.php', SF_AUTH='&t=sf_tok_999';
+      </script>
+    </html>
+  `;
+
+  const payload = {
+    langs: [
+      {
+        label: "Latino",
+        servers: [
+          { title: "Servidor 2", src: "https://savefiles.com/e/xneh0s576go9" },
+        ],
+      },
+    ],
+  };
+  const jsonStr = JSON.stringify(payload);
+  const key = [103, 78, 55, 100];
+  const encoded = Buffer.from(jsonStr, "utf-8").map((byte, i) => byte ^ key[i & 3]);
+  const packedBase64 = Buffer.from(encoded).toString("base64");
+
+  const mockFetch = async (url: string) => {
+    if (url.includes("the-last-of-us-2x07")) {
+      return new Response(pageHtml, { status: 200 });
+    }
+
+    if (url.includes("/wp-json/gnrd/v1/player")) {
+      return new Response(JSON.stringify({ p: packedBase64 }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (url.includes("/panel/savefiles-resolve.php")) {
+      return new Response(
+        JSON.stringify({ master: "https://s1.savefiles.com/hls2/master.m3u8?token=xyz" }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    return new Response("Not found", { status: 404 });
+  };
+
+  const getUrl = new GetUrl(mockFetch as any);
+  const result = await getUrl.operation("/the-last-of-us-2x07/");
+
+  assert.strictEqual(
+    result.url,
+    "https://s1.savefiles.com/hls2/master.m3u8?token=xyz"
+  );
+  assert.strictEqual(result.fallbackUrl, "https://savefiles.com/e/xneh0s576go9");
+});
+
+test("GetUrl falls back to embed URL when stream resolution fails", async () => {
+  const pageHtml = `
+    <html>
+      <script>
+        var _gnrdPid = 100;
+        var _gnrdTok = "tok_fallback";
+      </script>
+      <script>
+        var VD_RESOLVE='/panel/vidara-resolve.php', VD_AUTH='&t=fail_auth';
+      </script>
+    </html>
+  `;
+
+  const payload = {
+    langs: [
+      {
+        label: "Latino",
+        servers: [
+          { title: "Servidor 1", src: "https://vidaraa.cc/e/failedCode" },
+        ],
+      },
+    ],
+  };
+  const jsonStr = JSON.stringify(payload);
+  const key = [103, 78, 55, 100];
+  const encoded = Buffer.from(jsonStr, "utf-8").map((byte, i) => byte ^ key[i & 3]);
+  const packedBase64 = Buffer.from(encoded).toString("base64");
+
+  const mockFetch = async (url: string) => {
+    if (url.includes("fallback-test")) {
+      return new Response(pageHtml, { status: 200 });
+    }
+
+    if (url.includes("/wp-json/gnrd/v1/player")) {
+      return new Response(JSON.stringify({ p: packedBase64 }), {
+        status: 200,
+      });
+    }
+
+    if (url.includes("/panel/vidara-resolve.php")) {
+      return new Response("Not Found", { status: 404 });
+    }
+
+    return new Response("Not found", { status: 404 });
+  };
+
+  const getUrl = new GetUrl(mockFetch as any);
+  const result = await getUrl.operation("/ver/fallback-test/");
+
+  assert.strictEqual(result.url, "https://vidaraa.cc/e/failedCode");
+  assert.strictEqual(result.fallbackUrl, "https://vidaraa.cc/e/failedCode");
+});
+
+test("GetUrl throws Error when no servers are available", async () => {
+  const pageHtml = `
+    <html>
+      <script>
+        var _gnrdPid = 200;
+        var _gnrdTok = "tok_empty";
+      </script>
+    </html>
+  `;
+
+  const mockFetch = async (url: string) => {
+    if (url.includes("empty-servers")) {
+      return new Response(pageHtml, { status: 200 });
+    }
+    if (url.includes("/wp-json/gnrd/v1/player")) {
+      return new Response(JSON.stringify({ p: "" }), { status: 200 });
+    }
+    return new Response("Not found", { status: 404 });
+  };
+
+  const getUrl = new GetUrl(mockFetch as any);
+  await assert.rejects(
+    () => getUrl.operation("/ver/empty-servers/"),
+    /No streaming servers found/
+  );
+});
