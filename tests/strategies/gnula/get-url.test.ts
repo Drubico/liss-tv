@@ -112,7 +112,7 @@ test("GetUrl resolves Vidara server into direct M3U8 stream", async () => {
     result.url,
     "https://ww3.gnulahd.nu/panel/vidara-resolve.php?pl=1&code=TonyrXmWc1Ie0&host=vidaraa.cc&t=vdauth456"
   );
-  assert.strictEqual(result.fallbackUrl, "https://vidaraa.cc/e/TonyrXmWc1Ie0");
+  assert.strictEqual(result.fallbackUrl, undefined);
 });
 
 test("GetUrl resolves SaveFiles server to master.m3u8", async () => {
@@ -172,10 +172,10 @@ test("GetUrl resolves SaveFiles server to master.m3u8", async () => {
     result.url,
     "https://s1.savefiles.com/hls2/master.m3u8?token=xyz"
   );
-  assert.strictEqual(result.fallbackUrl, "https://savefiles.com/e/xneh0s576go9");
+  assert.strictEqual(result.fallbackUrl, undefined);
 });
 
-test("GetUrl falls back to embed URL when stream resolution fails", async () => {
+test("GetUrl throws GnulaError when stream resolution fails across all servers", async () => {
   const pageHtml = `
     <html>
       <script>
@@ -222,10 +222,10 @@ test("GetUrl falls back to embed URL when stream resolution fails", async () => 
   };
 
   const getUrl = new GetUrl(mockFetch);
-  const result = await getUrl.operation("/ver/fallback-test/");
-
-  assert.strictEqual(result.url, "https://vidaraa.cc/e/failedCode");
-  assert.strictEqual(result.fallbackUrl, "https://vidaraa.cc/e/failedCode");
+  await assert.rejects(
+    () => getUrl.operation("/ver/fallback-test/"),
+    /No playable stream found/
+  );
 });
 
 test("GetUrl throws Error when no servers are available", async () => {
@@ -300,7 +300,7 @@ test("GetUrl resolves The Tube server to master stream", async () => {
   const getUrl = new GetUrl(mockFetch);
   const result = await getUrl.operation("/ver/the-tube-test/");
   assert.strictEqual(result.url, "https://cdn.they.tube/master.m3u8");
-  assert.strictEqual(result.fallbackUrl, "https://they.tube/e/tubeCode123");
+  assert.strictEqual(result.fallbackUrl, undefined);
 });
 
 test("GetUrl selects requested language via options.params.lang", async () => {
@@ -309,6 +309,7 @@ test("GetUrl selects requested language via options.params.lang", async () => {
       <script>
         var _gnrdPid = 400;
         var _gnrdTok = "tok_lang";
+        var SF_RESOLVE='/panel/savefiles-resolve.php', SF_AUTH='&t=sf_lang';
       </script>
     </html>
   `;
@@ -317,11 +318,11 @@ test("GetUrl selects requested language via options.params.lang", async () => {
     langs: [
       {
         label: "Latino",
-        servers: [{ title: "Latino Server", src: "https://unknown.com/e/latino" }],
+        servers: [{ title: "Latino Server", src: "https://savefiles.com/e/latinoCode" }],
       },
       {
         label: "Subtitulado",
-        servers: [{ title: "Sub Server", src: "https://unknown.com/e/subtitulado" }],
+        servers: [{ title: "Sub Server", src: "https://savefiles.com/e/subCode" }],
       },
     ],
   };
@@ -337,6 +338,18 @@ test("GetUrl selects requested language via options.params.lang", async () => {
     if (url.includes("/wp-json/gnrd/v1/player")) {
       return new Response(JSON.stringify({ p: packedBase64 }), { status: 200 });
     }
+    if (url.includes("/panel/savefiles-resolve.php?code=subCode")) {
+      return new Response(JSON.stringify({ master: "https://s1.savefiles.com/sub.m3u8" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    if (url.includes("/panel/savefiles-resolve.php?code=latinoCode")) {
+      return new Response(JSON.stringify({ master: "https://s1.savefiles.com/latino.m3u8" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
     return new Response("Not found", { status: 404 });
   };
 
@@ -344,7 +357,7 @@ test("GetUrl selects requested language via options.params.lang", async () => {
   const result = await getUrl.operation("/ver/lang-test/", {
     params: { lang: "subtitulado" },
   });
-  assert.strictEqual(result.url, "https://unknown.com/e/subtitulado");
+  assert.strictEqual(result.url, "https://s1.savefiles.com/sub.m3u8");
 });
 
 test("GetUrl skips page fetch when full tokens are provided in detailContext", async () => {
@@ -352,7 +365,7 @@ test("GetUrl skips page fetch when full tokens are provided in detailContext", a
     langs: [
       {
         label: "Latino",
-        servers: [{ title: "Direct Embed", src: "https://embed.example.com/e/direct" }],
+        servers: [{ title: "SaveFiles Direct", src: "https://savefiles.com/e/contextCode" }],
       },
     ],
   };
@@ -371,6 +384,12 @@ test("GetUrl skips page fetch when full tokens are provided in detailContext", a
     if (url.includes("/wp-json/gnrd/v1/player?id=999&t=tok999")) {
       return new Response(JSON.stringify({ p: packedBase64 }), { status: 200 });
     }
+    if (url.includes("/panel/savefiles-resolve.php?code=contextCode")) {
+      return new Response(JSON.stringify({ master: "https://s1.savefiles.com/context.m3u8" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
     return new Response("Not found", { status: 404 });
   };
 
@@ -379,12 +398,12 @@ test("GetUrl skips page fetch when full tokens are provided in detailContext", a
     detailContext: {
       pid: "999",
       tok: "tok999",
-      vdResolve: "/panel/vidara-resolve.php",
+      sfResolve: "/panel/savefiles-resolve.php",
     },
   });
 
   assert.strictEqual(pageFetched, false);
-  assert.strictEqual(result.url, "https://embed.example.com/e/direct");
+  assert.strictEqual(result.url, "https://s1.savefiles.com/context.m3u8");
 });
 
 test("GetUrl throws GnulaError when player endpoint fails with HTTP error", async () => {
@@ -412,4 +431,164 @@ test("GetUrl throws GnulaError when player endpoint fails with HTTP error", asyn
     () => getUrl.operation("/ver/error-test/"),
     /Player endpoint returned HTTP 403/
   );
+});
+
+test("GetUrl prioritizes SaveFiles over unresolvable servers like bysevepoin.com", async () => {
+  const pageHtml = `
+    <html>
+      <script>
+        var _gnrdPid = 600;
+        var _gnrdTok = "tok_priority";
+        var SF_RESOLVE='/panel/savefiles-resolve.php', SF_AUTH='&t=sf_tok';
+      </script>
+    </html>
+  `;
+
+  const payload = {
+    langs: [
+      {
+        label: "Latino",
+        servers: [
+          { title: "Servidor Bysevepoin", src: "https://bysevepoin.com/e/x40h60zh998r" },
+          { title: "Servidor Savefiles", src: "https://savefiles.com/e/sfPrioritizedCode" },
+        ],
+      },
+    ],
+  };
+  const jsonStr = JSON.stringify(payload);
+  const key = [103, 78, 55, 100];
+  const encoded = Buffer.from(jsonStr, "utf-8").map((byte, i) => byte ^ key[i & 3]);
+  const packedBase64 = Buffer.from(encoded).toString("base64");
+
+  const mockFetch: GnulaMockFetch = async (url: string) => {
+    if (url.includes("priority-test")) {
+      return new Response(pageHtml, { status: 200 });
+    }
+    if (url.includes("/wp-json/gnrd/v1/player")) {
+      return new Response(JSON.stringify({ p: packedBase64 }), { status: 200 });
+    }
+    if (url.includes("/panel/savefiles-resolve.php?code=sfPrioritizedCode")) {
+      return new Response(JSON.stringify({ master: "https://s1.savefiles.com/prioritized.m3u8" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    return new Response("Not found", { status: 404 });
+  };
+
+  const getUrl = new GetUrl(mockFetch);
+  const result = await getUrl.operation("/ver/priority-test/");
+  assert.strictEqual(result.url, "https://s1.savefiles.com/prioritized.m3u8");
+});
+
+test("GetUrl skips Vidara returning aviso.mp4 dummy video and resolves subsequent SaveFiles server", async () => {
+  const pageHtml = `
+    <html>
+      <script>
+        var _gnrdPid = 700;
+        var _gnrdTok = "tok_aviso";
+        var VD_RESOLVE='/panel/vidara-resolve.php', VD_AUTH='&t=vd_tok';
+        var SF_RESOLVE='/panel/savefiles-resolve.php', SF_AUTH='&t=sf_tok';
+      </script>
+    </html>
+  `;
+
+  const payload = {
+    langs: [
+      {
+        label: "Latino",
+        servers: [
+          { title: "Servidor Vidara", src: "https://vidaraa.cc/e/vdAvisoCode" },
+          { title: "Servidor Savefiles", src: "https://savefiles.com/e/sfAfterAviso" },
+        ],
+      },
+    ],
+  };
+  const jsonStr = JSON.stringify(payload);
+  const key = [103, 78, 55, 100];
+  const encoded = Buffer.from(jsonStr, "utf-8").map((byte, i) => byte ^ key[i & 3]);
+  const packedBase64 = Buffer.from(encoded).toString("base64");
+
+  const mockFetch: GnulaMockFetch = async (url: string) => {
+    if (url.includes("aviso-test")) {
+      return new Response(pageHtml, { status: 200 });
+    }
+    if (url.includes("/wp-json/gnrd/v1/player")) {
+      return new Response(JSON.stringify({ p: packedBase64 }), { status: 200 });
+    }
+    if (url.includes("/panel/vidara-resolve.php")) {
+      // Returns Gnula dummy warning video
+      return new Response(JSON.stringify({ master: "https://ww3.gnulahd.nu/wp-content/uploads/epix/aviso.mp4" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    if (url.includes("/panel/savefiles-resolve.php?code=sfAfterAviso")) {
+      return new Response(JSON.stringify({ master: "https://s1.savefiles.com/valid-after-aviso.m3u8" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    return new Response("Not found", { status: 404 });
+  };
+
+  const getUrl = new GetUrl(mockFetch);
+  const result = await getUrl.operation("/ver/aviso-test/");
+  assert.strictEqual(result.url, "https://s1.savefiles.com/valid-after-aviso.m3u8");
+});
+
+test("GetUrl populates fallbackUrl when multiple valid streams resolve", async () => {
+  const pageHtml = `
+    <html>
+      <script>
+        var _gnrdPid = 800;
+        var _gnrdTok = "tok_multi";
+        var SF_RESOLVE='/panel/savefiles-resolve.php', SF_AUTH='&t=sf_tok';
+        var RESOLVE='/panel/the-tube-resolve.php?code=', AUTH='&t=tt_tok';
+      </script>
+    </html>
+  `;
+
+  const payload = {
+    langs: [
+      {
+        label: "Latino",
+        servers: [
+          { title: "Servidor Savefiles", src: "https://savefiles.com/e/sf1" },
+          { title: "Servidor TheTube", src: "https://they.tube/e/tt2" },
+        ],
+      },
+    ],
+  };
+  const jsonStr = JSON.stringify(payload);
+  const key = [103, 78, 55, 100];
+  const encoded = Buffer.from(jsonStr, "utf-8").map((byte, i) => byte ^ key[i & 3]);
+  const packedBase64 = Buffer.from(encoded).toString("base64");
+
+  const mockFetch: GnulaMockFetch = async (url: string) => {
+    if (url.includes("multi-test")) {
+      return new Response(pageHtml, { status: 200 });
+    }
+    if (url.includes("/wp-json/gnrd/v1/player")) {
+      return new Response(JSON.stringify({ p: packedBase64 }), { status: 200 });
+    }
+    if (url.includes("/panel/savefiles-resolve.php?code=sf1")) {
+      return new Response(JSON.stringify({ master: "https://s1.savefiles.com/stream1.m3u8" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    if (url.includes("/panel/the-tube-resolve.php")) {
+      return new Response(JSON.stringify({ master: "https://cdn.they.tube/stream2.m3u8" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    return new Response("Not found", { status: 404 });
+  };
+
+  const getUrl = new GetUrl(mockFetch);
+  const result = await getUrl.operation("/ver/multi-test/");
+  assert.strictEqual(result.url, "https://s1.savefiles.com/stream1.m3u8");
+  assert.strictEqual(result.fallbackUrl, "https://cdn.they.tube/stream2.m3u8");
 });

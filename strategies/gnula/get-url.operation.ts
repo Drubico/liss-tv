@@ -120,17 +120,31 @@ function resolveDetailPath(path: string): string {
 function extractVidaraInfo(src: string): { code: string; host: string } | null {
   try {
     const url = new URL(src);
-    if (url.hostname.includes("vidara") || url.hostname.includes("bysevepoin")) {
+    const hostname = url.hostname.toLowerCase();
+    if (
+      hostname === "vidara.to" ||
+      hostname === "vidaraa.cc" ||
+      hostname.endsWith(".vidara.to") ||
+      hostname.endsWith(".vidaraa.cc")
+    ) {
       const parts = url.pathname.split("/").filter(Boolean);
-      const code = parts[parts.length - 1];
+      const code = parts[parts.length - 1]?.replace(/#.*$/, "");
       if (code) {
-        return { code, host: url.hostname };
+        return { code, host: hostname };
       }
     }
   } catch {
     // Ignore invalid url
   }
   return null;
+}
+
+function getServerPriority(src: string): number {
+  const lower = src.toLowerCase();
+  if (lower.includes("savefiles.com")) return 1;
+  if (lower.includes("the.tube") || lower.includes("they.tube")) return 2;
+  if (lower.includes("vidara.to") || lower.includes("vidaraa.cc")) return 3;
+  return 10;
 }
 
 function extractSaveFilesCode(src: string): string | null {
@@ -175,11 +189,13 @@ export class GetUrl implements StrategyGetUrl {
     if (
       typeof detailContext?.pid === "string" &&
       typeof detailContext?.tok === "string" &&
-      typeof detailContext?.vdResolve === "string"
+      (typeof detailContext?.vdResolve === "string" ||
+        typeof detailContext?.sfResolve === "string" ||
+        typeof detailContext?.ttResolve === "string")
     ) {
       tokens.pid = detailContext.pid;
       tokens.tok = detailContext.tok;
-      tokens.vdResolve = detailContext.vdResolve;
+      tokens.vdResolve = typeof detailContext.vdResolve === "string" ? detailContext.vdResolve : undefined;
       tokens.vdAuth = typeof detailContext.vdAuth === "string" ? detailContext.vdAuth : undefined;
       tokens.sfResolve = typeof detailContext.sfResolve === "string" ? detailContext.sfResolve : undefined;
       tokens.sfAuth = typeof detailContext.sfAuth === "string" ? detailContext.sfAuth : undefined;
@@ -251,10 +267,14 @@ export class GetUrl implements StrategyGetUrl {
       throw new GnulaError(`[Gnula] No servers found in language group for ${path}`);
     }
 
-    const fallbackCandidate = servers[0].src;
+    const sortedServers = [...servers].sort(
+      (a, b) => getServerPriority(a.src) - getServerPriority(b.src)
+    );
+
+    const resolvedStreams: string[] = [];
 
     // 4. Cascade resolution to direct M3U8
-    for (const server of servers) {
+    for (const server of sortedServers) {
       // 4.1 Vidara Resolver
       const vidara = extractVidaraInfo(server.src);
       if (vidara && tokens.vdResolve) {
@@ -265,13 +285,21 @@ export class GetUrl implements StrategyGetUrl {
             headers: { Referer: referer },
           });
           if (res.ok) {
-            const fullVdUrl = vdUrl.startsWith("http")
-              ? vdUrl
-              : `${cleanBase}${vdUrl.startsWith("/") ? "" : "/"}${vdUrl}`;
-            return {
-              url: fullVdUrl,
-              fallbackUrl: server.src,
-            };
+            const contentType = res.headers.get("content-type") || "";
+            if (contentType.includes("json")) {
+              const json = (await res.json()) as { master?: string; error?: string };
+              if (json.master && !json.master.includes("aviso.mp4") && !json.error) {
+                resolvedStreams.push(json.master);
+              }
+            } else {
+              const text = await res.text();
+              if (text.includes("#EXTM3U") && !text.includes("aviso.mp4")) {
+                const fullVdUrl = vdUrl.startsWith("http")
+                  ? vdUrl
+                  : `${cleanBase}${vdUrl.startsWith("/") ? "" : "/"}${vdUrl}`;
+                resolvedStreams.push(fullVdUrl);
+              }
+            }
           }
         } catch {
           // Continue to next server
@@ -288,12 +316,9 @@ export class GetUrl implements StrategyGetUrl {
             headers: { Referer: referer },
           });
           if (res.ok) {
-            const sfJson = (await res.json()) as { master?: string };
-            if (sfJson.master) {
-              return {
-                url: sfJson.master,
-                fallbackUrl: server.src,
-              };
+            const sfJson = (await res.json()) as { master?: string; error?: string };
+            if (sfJson.master && !sfJson.master.includes("aviso.mp4") && !sfJson.error) {
+              resolvedStreams.push(sfJson.master);
             }
           }
         } catch {
@@ -311,12 +336,9 @@ export class GetUrl implements StrategyGetUrl {
             headers: { Referer: referer },
           });
           if (res.ok) {
-            const ttJson = (await res.json()) as { master?: string };
-            if (ttJson.master) {
-              return {
-                url: ttJson.master,
-                fallbackUrl: server.src,
-              };
+            const ttJson = (await res.json()) as { master?: string; error?: string };
+            if (ttJson.master && !ttJson.master.includes("aviso.mp4") && !ttJson.error) {
+              resolvedStreams.push(ttJson.master);
             }
           }
         } catch {
@@ -325,10 +347,13 @@ export class GetUrl implements StrategyGetUrl {
       }
     }
 
-    // 5. Fallback to raw embed URL
-    return {
-      url: fallbackCandidate,
-      fallbackUrl: fallbackCandidate,
-    };
+    if (resolvedStreams.length > 0) {
+      return {
+        url: resolvedStreams[0],
+        fallbackUrl: resolvedStreams[1] || undefined,
+      };
+    }
+
+    throw new GnulaError(`[Gnula] No playable stream found for ${path}`);
   }
 }
