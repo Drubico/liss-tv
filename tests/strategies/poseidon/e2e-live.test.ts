@@ -78,3 +78,19 @@ test("Live: Poseidon driver gets serie detail with clean slug", async () => {
     `Episode link should be resolvable: ${detail.episodes[0].episodes[0].link}`,
   );
 });
+
+test("Live: Poseidon driver paginates series without duplicates", async () => {
+  const driver = DriverRegistry.getDriver("poseidon");
+  const page1 = await driver.getAll({ slug: "series", pageNumber: 1 });
+  const page2 = await driver.getAll({ slug: "series", pageNumber: 2 });
+
+  assert.ok(page1 && page1.movies.length > 0);
+  assert.ok(page2 && page2.movies.length > 0);
+  assert.notStrictEqual(
+    page1.movies[0].title,
+    page2.movies[0].title,
+    "Page 1 and Page 2 must have distinct items (no duplication)",
+  );
+  assert.ok(page1.hasMore, "Page 1 should indicate hasMore=true");
+  assert.strictEqual(page1.lastPageNumber, 195);
+});

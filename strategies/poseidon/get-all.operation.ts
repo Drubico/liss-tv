@@ -61,14 +61,12 @@ export class GetAll implements StrategyGetAllMovies {
 
       if (search && search.trim().length > 0) {
         const cleanSearch = search.trim().toLowerCase();
-        endpoint =
-          pageNumber > 1
-            ? `search?q=${encodeURIComponent(cleanSearch)}&page=${pageNumber}`
-            : `search?q=${encodeURIComponent(cleanSearch)}`;
-      } else if (slug === "series" || slug === "/series") {
-        endpoint = pageNumber > 1 ? `series?page=${pageNumber}` : "series";
+        endpoint = `search?q=${encodeURIComponent(cleanSearch)}`;
+      } else if (slug && slug.trim().length > 0) {
+        const cleanSlug = slug.replace(/^\/+|\/+$/g, "");
+        endpoint = pageNumber > 1 ? `${cleanSlug}/page/${pageNumber}` : cleanSlug;
       } else {
-        endpoint = pageNumber > 1 ? `peliculas?page=${pageNumber}` : "peliculas";
+        endpoint = pageNumber > 1 ? `peliculas/page/${pageNumber}` : "peliculas";
       }
 
       const response = await poseidonFetch(endpoint);
