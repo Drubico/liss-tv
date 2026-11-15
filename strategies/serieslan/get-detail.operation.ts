@@ -116,6 +116,23 @@ export class GetDetail implements StrategyGetMovieDetails {
 
       seasonsData.sort((a, b) => parseInt(a.season, 10) - parseInt(b.season, 10));
 
+      const tags: string[] = Array.isArray(item.genres)
+        ? item.genres
+            .map((g) => {
+              if (typeof g === "string") return g;
+              if (
+                typeof g === "object" &&
+                g !== null &&
+                "title" in g &&
+                typeof g.title === "string"
+              ) {
+                return g.title;
+              }
+              return "";
+            })
+            .filter(Boolean)
+        : [];
+
       return {
         title: item.title,
         image: poster,
@@ -123,7 +140,7 @@ export class GetDetail implements StrategyGetMovieDetails {
         rating: item.vote_average ? String(item.vote_average) : "",
         year: item.year ? String(item.year) : "",
         duration: item.runtime ? `${item.runtime} min` : "",
-        tags: item.genres || [],
+        tags,
         caption: item.overview || detail.overview || "",
         episodes: seasonsData.length > 0 ? seasonsData : undefined,
         context: {

@@ -41,6 +41,10 @@ test("GetDetail maps series detail and batches episode loading across seasons", 
       url: "/serie/chicago-pd",
       overview: "Distrito 21 del departamento de policía.",
       tmdb_id: 58841,
+      genres: [
+        { slug: "crimen", title: "Crimen", type: "genre", url: "/genero/crimen" },
+        "Drama",
+      ],
     },
     episode_seasons: [
       {
@@ -98,6 +102,7 @@ test("GetDetail maps series detail and batches episode loading across seasons", 
   assert.strictEqual(detail.title, "Policías de Chicago");
   assert.strictEqual(detail.year, "2014");
   assert.strictEqual(detail.rating, "8.4");
+  assert.deepStrictEqual(detail.tags, ["Crimen", "Drama"]);
   assert.strictEqual(detail.caption, "Distrito 21 del departamento de policía.");
   assert.strictEqual(detail.image, "https://image.tmdb.org/t/p/w500/poster.jpg");
   assert.strictEqual(detail.backgroundImage, "https://image.tmdb.org/t/p/original/backdrop.jpg");

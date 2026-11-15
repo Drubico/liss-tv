@@ -141,14 +141,23 @@ export function HeroBackdrop({
           {/* Tags */}
           {tags.length > 0 && (
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-1.5 sm:gap-2">
-              {tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="text-xs px-3 py-1 rounded-full bg-white/[0.08] border border-white/[0.12] text-gray-300 font-medium"
-                >
-                  {tag}
-                </span>
-              ))}
+              {tags.map((tag, idx) => {
+                const label =
+                  typeof tag === "string"
+                    ? tag
+                    : (tag as unknown as { title?: string; name?: string })?.title ||
+                      (tag as unknown as { title?: string; name?: string })?.name ||
+                      "";
+                if (!label) return null;
+                return (
+                  <span
+                    key={`${label}-${idx}`}
+                    className="text-xs px-3 py-1 rounded-full bg-white/[0.08] border border-white/[0.12] text-gray-300 font-medium"
+                  >
+                    {label}
+                  </span>
+                );
+              })}
             </div>
           )}
 

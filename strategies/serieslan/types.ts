@@ -1,3 +1,10 @@
+export interface SeriesLanGenre {
+  slug?: string;
+  title?: string;
+  type?: string;
+  url?: string;
+}
+
 export interface SeriesLanItem {
   backdrop_path: string | null;
   cast_included?: boolean;
@@ -7,7 +14,7 @@ export interface SeriesLanItem {
   countries?: string[];
   featured?: boolean;
   first_air_date?: string | null;
-  genres?: string[];
+  genres?: Array<SeriesLanGenre | string>;
   imdb_id?: string | null;
   kind: "serie" | "movie" | string;
   last_air_date?: string | null;
