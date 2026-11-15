@@ -1,11 +1,14 @@
 import type { Movie, Movies, StrategyGetAllMovies } from "../../types/movie.ts";
-import { extractNextData, poseidonFetch } from "./client.ts";
+import { extractLeafSlug, extractNextData, poseidonFetch } from "./client.ts";
+import { upsertAll } from "../../services/movie.store.ts";
 import type { PoseidonMovieItem, PoseidonPageProps } from "./types.ts";
 
 /**
  * Mappings for Poseidon canonical links:
- * - movies/<id>/<slug> -> /pelicula/<id>/<slug>
- * - series/<id>/<slug> -> /serie/<id>/<slug>
+ * Normalizes to clean, single-segment slugs matching Gnula and Liss-TV dynamic routing:
+ * - series/<id>/<slug> -> /serie/<slug>
+ * - movies/<id>/<slug> -> /pelicula/<slug>
+ * Also caches the mapping from <slug> to upstream <id>/<slug> in SQLite.
  */
 export function mapPoseidonItemToMovie(item: PoseidonMovieItem): Movie | null {
   if (!item?.titles?.name || !item?.url?.slug) {
@@ -13,14 +16,16 @@ export function mapPoseidonItemToMovie(item: PoseidonMovieItem): Movie | null {
   }
 
   const rawSlug = item.url.slug.replace(/^\/+|\/+$/g, "");
-  let canonicalLink: string;
+  const isSerie = rawSlug.startsWith("series/") || rawSlug.startsWith("serie/");
+  const leafSlug = extractLeafSlug(rawSlug);
 
-  if (rawSlug.startsWith("series/")) {
-    canonicalLink = `/serie/${rawSlug.slice("series/".length)}`;
-  } else if (rawSlug.startsWith("movies/")) {
-    canonicalLink = `/pelicula/${rawSlug.slice("movies/".length)}`;
-  } else {
-    canonicalLink = `/pelicula/${rawSlug}`;
+  const canonicalLink = `/${isSerie ? "serie" : "pelicula"}/${leafSlug}`;
+  const upstreamPath = `${isSerie ? "serie/" : "pelicula/"}${rawSlug.replace(/^(series|movies|serie|pelicula)\//, "")}`;
+
+  try {
+    upsertAll(`poseidon:slug:${leafSlug}`, upstreamPath);
+  } catch {
+    // Ignore cache persistence errors if store offline
   }
 
   let year = "";

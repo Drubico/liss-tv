@@ -3,7 +3,7 @@ import {
   persistUpstreamManifest,
   resolveCachedStream,
 } from "../../services/stream-cache.service.ts";
-import { extractNextData, poseidonFetch } from "./client.ts";
+import { extractNextData, poseidonFetch, resolvePoseidonPath } from "./client.ts";
 import type {
   PoseidonPageProps,
   PoseidonVideoSource,
@@ -65,7 +65,8 @@ export class GetUrl implements StrategyGetUrl {
       if (options?.detailContext?.videos) {
         videos = options.detailContext.videos as PoseidonVideosMap;
       } else {
-        const cleanPath = path.replace(/^\/+/, "");
+        const resolvedPath = await resolvePoseidonPath(path);
+        const cleanPath = resolvedPath.replace(/^\/+/, "");
         const response = await poseidonFetch(cleanPath);
         const html = await response.text();
         const nextData = extractNextData(html);

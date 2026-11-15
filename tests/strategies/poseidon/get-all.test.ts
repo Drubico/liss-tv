@@ -14,7 +14,7 @@ test("mapPoseidonItemToMovie maps movie item correctly", () => {
   };
   const movie = mapPoseidonItemToMovie(item);
   assert.strictEqual(movie?.title, "Batman Inicia");
-  assert.strictEqual(movie?.link, "/pelicula/12345/batman-inicia");
+  assert.strictEqual(movie?.link, "/pelicula/batman-inicia");
   assert.strictEqual(movie?.year, "2005");
   assert.strictEqual(movie?.rating, "8.2");
 });
@@ -28,6 +28,6 @@ test("mapPoseidonItemToMovie maps series item correctly", () => {
     url: { slug: "series/999/dark" },
   };
   const serie = mapPoseidonItemToMovie(item);
-  assert.strictEqual(serie?.link, "/serie/999/dark");
+  assert.strictEqual(serie?.link, "/serie/dark");
   assert.strictEqual(serie?.year, "2017");
 });

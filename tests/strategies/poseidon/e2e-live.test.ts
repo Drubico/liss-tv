@@ -60,3 +60,16 @@ test("Live: Poseidon driver gets movie detail and resolves Latino Vidara stream"
     `URL should be an HLS stream: ${finalUrl}`,
   );
 });
+
+test("Live: Poseidon driver gets serie detail with clean slug", async () => {
+  const driver = DriverRegistry.getDriver("poseidon");
+  const detail = await driver.getDetail("/serie/the-lowdown");
+  assert.ok(detail, "Series detail should be returned");
+  assert.strictEqual(detail.title, "The Lowdown");
+  assert.ok(detail.episodes && detail.episodes.length > 0, "Should have seasons");
+  assert.strictEqual(detail.episodes[0].episodes[0].caption, "The Lowdown 1x1");
+  assert.ok(
+    detail.episodes[0].episodes[0].link.startsWith("/serie/273247/the-lowdown/"),
+    `Episode link should be resolvable: ${detail.episodes[0].episodes[0].link}`,
+  );
+});

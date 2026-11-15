@@ -4,7 +4,12 @@ import type {
   StoredMovie,
   StrategyGetMovieDetails,
 } from "../../types/movie.ts";
-import { extractNextData, poseidonFetch } from "./client.ts";
+import {
+  extractLeafSlug,
+  extractNextData,
+  poseidonFetch,
+  resolvePoseidonPath,
+} from "./client.ts";
 import type {
   PoseidonPageProps,
   PoseidonThisMovie,
@@ -67,7 +72,7 @@ export function mapPoseidonSerieDetail(
 
   const tmdbId = serie.TMDbId;
   const rawSlug = serie.url?.slug || "";
-  const cleanSlug = rawSlug.replace(/^series\/[^/]+\/?/, "") || rawSlug.replace(/^.*\/|\/$/g, "");
+  const cleanSlug = extractLeafSlug(rawSlug || _slugParam || "");
 
   const seasons: Season[] = (serie.seasons || [])
     .filter((s) => s.episodes && s.episodes.length > 0)
@@ -77,7 +82,14 @@ export function mapPoseidonSerieDetail(
         const sNum = String(s.number);
         const epTitle = ep.title || `Episodio ${epNum}`;
         const epImage = ep.image || serie.images?.poster || "";
-        const epLink = `/serie/${tmdbId}/${cleanSlug}/temporada/${sNum}/episodio/${epNum}`;
+
+        let epLink: string;
+        if (ep.url?.slug) {
+          const rawEpSlug = ep.url.slug.replace(/^\/+/, "");
+          epLink = `/${rawEpSlug.replace(/^series\//, "serie/")}`;
+        } else {
+          epLink = `/serie/${tmdbId}/${cleanSlug}/seasons/${sNum}/episodes/${epNum}`;
+        }
 
         return {
           numberEpisode: epNum,
@@ -125,7 +137,8 @@ export class GetDetail implements StrategyGetMovieDetails {
     link: string,
   ): Promise<Omit<StoredMovie, "link" | "updatedAt"> | undefined> {
     try {
-      const cleanPath = link.replace(/^\/+/, "");
+      const resolvedPath = await resolvePoseidonPath(link);
+      const cleanPath = resolvedPath.replace(/^\/+/, "");
       const isSerie = cleanPath.startsWith("serie/") || cleanPath.startsWith("series/");
 
       const response = await poseidonFetch(cleanPath);

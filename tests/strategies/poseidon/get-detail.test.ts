@@ -66,6 +66,6 @@ test("mapPoseidonSerieDetail filters out empty season 0 and maps episodes", () =
   assert.strictEqual(detail.episodes?.[0].episodes[0].caption, "Pilot");
   assert.strictEqual(
     detail.episodes?.[0].episodes[0].link,
-    "/serie/200/breaking-bad/temporada/1/episodio/1",
+    "/serie/200/breaking-bad/seasons/1/episodes/1",
   );
 });

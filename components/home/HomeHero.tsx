@@ -32,6 +32,14 @@ export function HomeHero({ movie }: HomeHeroProps) {
   const isSerie = movie.link.includes("serie");
   const playHref = isSerie ? movie.link : `${movie.link}/player`;
 
+  const titleLength = movie.title.length;
+  const titleSizeClass =
+    titleLength > 40
+      ? "text-2xl sm:text-4xl lg:text-5xl"
+      : titleLength > 24
+        ? "text-3xl sm:text-4xl lg:text-5xl"
+        : "text-3xl sm:text-5xl lg:text-6xl";
+
   const handlePlay = () => {
     store.setMovieData({
       title: movie.title,
@@ -63,7 +71,7 @@ export function HomeHero({ movie }: HomeHeroProps) {
       </div>
 
       {/* ── Content Details ── */}
-      <div className="relative z-10 w-full max-w-[1800px] mx-auto px-4 sm:px-8 lg:px-12 pb-12 sm:pb-16 flex flex-col gap-4 max-w-3xl">
+      <div className="relative z-10 w-full max-w-3xl lg:max-w-4xl px-4 sm:px-8 lg:px-12 pb-12 sm:pb-16 flex flex-col gap-3.5 sm:gap-4">
         {/* Eyebrow badge */}
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#e50914]/20 border border-[#e50914]/40 text-[#e50914] text-xs font-bold uppercase tracking-wider">
@@ -79,7 +87,7 @@ export function HomeHero({ movie }: HomeHeroProps) {
         </div>
 
         {/* Title */}
-        <h1 className="font-poppins text-3xl sm:text-5xl lg:text-6xl font-black text-white leading-[1.1] tracking-tight drop-shadow-[0_4px_16px_rgba(0,0,0,0.9)]">
+        <h1 className={`font-poppins ${titleSizeClass} font-extrabold sm:font-black text-white leading-[1.15] tracking-tight line-clamp-2 drop-shadow-[0_4px_16px_rgba(0,0,0,0.9)]`}>
           {movie.title}
         </h1>
 
