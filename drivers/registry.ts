@@ -17,6 +17,9 @@ export class DriverRegistry {
 
       const soloLatinoContext = MovieContextFactory.driver("solo-latino");
       this.register(new CachedDriverDecorator(soloLatinoContext));
+
+      const serieslanContext = MovieContextFactory.driver("serieslan");
+      this.register(new CachedDriverDecorator(serieslanContext));
     } catch (err) {
       console.warn("[DriverRegistry] Warning initializing built-in drivers:", err);
     }

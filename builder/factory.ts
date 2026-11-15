@@ -1,12 +1,14 @@
 import { MovieContext } from "@/strategies/context";
 import { SoloLatinoMovieBuilder } from "./solo-latino.build";
 import { GnulaMovieBuilder } from "./gnula.build";
+import { SerieslanMovieBuilder } from "./serieslan.build";
 import type { MovieBuilder } from "@/types/movie";
 
 export class MovieContextFactory {
   private static providers: { [key: string]: MovieBuilder<MovieContext> } = {
     "solo-latino": new SoloLatinoMovieBuilder(),
     gnula: new GnulaMovieBuilder(),
+    serieslan: new SerieslanMovieBuilder(),
   };
 
   private constructor() {}
@@ -19,7 +21,11 @@ export class MovieContextFactory {
     return new GnulaMovieBuilder().build();
   }
 
-  static driver(name: "solo-latino" | "gnula"): MovieContext {
+  static createSerieslanContext(): MovieContext {
+    return new SerieslanMovieBuilder().build();
+  }
+
+  static driver(name: "solo-latino" | "gnula" | "serieslan"): MovieContext {
     const builder = MovieContextFactory.providers[name];
 
     if (!builder) {
