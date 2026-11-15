@@ -1,8 +1,7 @@
 import * as cheerio from "cheerio";
 import type { GetUrlOptions, StrategyGetUrl, Url } from "@/types/movie";
-import { gnulaFetch } from "./client";
+import { gnulaFetch, GNULA_BASE_URL, GnulaError } from "./client";
 
-const GNULA_BASE_URL = "https://ww3.gnulahd.nu";
 const DEFAULT_X_GN_SCR = "1920x1080|1920x1040|1920x969|1|0|0|8|8|24|0|1|hw";
 const DEFAULT_X_GN_DEV = "4f8a2c1b9e3d";
 const XOR_KEY = [103, 78, 55, 100];
@@ -38,12 +37,12 @@ export function gnrdUnpack(s: string): GnulaPlayerPayload | null {
   if (!s || typeof s !== "string") return null;
 
   try {
-    const rawBinary = Buffer.from(s, "base64").toString("binary");
-    if (!rawBinary) return null;
+    const rawBytes = Buffer.from(s, "base64");
+    if (!rawBytes.length) return null;
 
-    const decodedBytes = new Uint8Array(rawBinary.length);
-    for (let i = 0; i < rawBinary.length; i++) {
-      decodedBytes[i] = rawBinary.charCodeAt(i) ^ XOR_KEY[i & 3];
+    const decodedBytes = new Uint8Array(rawBytes.length);
+    for (let i = 0; i < rawBytes.length; i++) {
+      decodedBytes[i] = rawBytes[i] ^ XOR_KEY[i & 3];
     }
 
     const jsonStr = new TextDecoder("utf-8").decode(decodedBytes);
@@ -89,12 +88,12 @@ function extractScriptTokens($: cheerio.CheerioAPI): ScriptTokens {
       tokens.sfAuth = sfAuthMatch[1];
     }
 
-    const ttResolveMatch = text.match(/RESOLVE\s*=\s*['"]([^'"]+)['"]/);
+    const ttResolveMatch = text.match(/\bRESOLVE\s*=\s*['"]([^'"]+)['"]/);
     if (ttResolveMatch && !tokens.ttResolve) {
       tokens.ttResolve = ttResolveMatch[1];
     }
 
-    const ttAuthMatch = text.match(/AUTH\s*=\s*['"]([^'"]+)['"]/);
+    const ttAuthMatch = text.match(/\bAUTH\s*=\s*['"]([^'"]+)['"]/);
     if (ttAuthMatch && !tokens.ttAuth) {
       tokens.ttAuth = ttAuthMatch[1];
     }
@@ -171,23 +170,34 @@ export class GetUrl implements StrategyGetUrl {
     const endpoint = resolveDetailPath(path);
     const detailContext = options?.detailContext as Record<string, unknown> | undefined;
 
-    // 1. Fetch content page if pid/tok not in context
+    // 1. Fetch content page if complete tokens are not already provided in context
     let tokens: ScriptTokens = {};
-    if (typeof detailContext?.id === "string" && typeof detailContext?.t === "string") {
-      tokens.pid = detailContext.id;
-      tokens.tok = detailContext.t;
-      tokens.vdResolve = typeof detailContext.vdResolve === "string" ? detailContext.vdResolve : undefined;
+    if (
+      typeof detailContext?.pid === "string" &&
+      typeof detailContext?.tok === "string" &&
+      typeof detailContext?.vdResolve === "string"
+    ) {
+      tokens.pid = detailContext.pid;
+      tokens.tok = detailContext.tok;
+      tokens.vdResolve = detailContext.vdResolve;
       tokens.vdAuth = typeof detailContext.vdAuth === "string" ? detailContext.vdAuth : undefined;
       tokens.sfResolve = typeof detailContext.sfResolve === "string" ? detailContext.sfResolve : undefined;
       tokens.sfAuth = typeof detailContext.sfAuth === "string" ? detailContext.sfAuth : undefined;
-    }
-
-    if (!tokens.pid || !tokens.tok) {
+      tokens.ttResolve = typeof detailContext.ttResolve === "string" ? detailContext.ttResolve : undefined;
+      tokens.ttAuth = typeof detailContext.ttAuth === "string" ? detailContext.ttAuth : undefined;
+    } else {
       const pageRes = await this.fetchFn(endpoint, {
         headers: {
           Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         },
       });
+
+      if (!pageRes.ok) {
+        throw new GnulaError(
+          `[Gnula] Failed to load content page ${endpoint}: HTTP ${pageRes.status}`,
+          pageRes.status
+        );
+      }
 
       const html = await pageRes.text();
       const $ = cheerio.load(html);
@@ -195,13 +205,14 @@ export class GetUrl implements StrategyGetUrl {
     }
 
     if (!tokens.pid || !tokens.tok) {
-      throw new Error(`[Gnula] Failed to extract player tokens for ${path}`);
+      throw new GnulaError(`[Gnula] Failed to extract player tokens for ${path}`);
     }
 
     // 2. Fetch player endpoint
+    const cleanBase = GNULA_BASE_URL.replace(/\/+$/, "");
     const referer = path.startsWith("http")
       ? path
-      : `${GNULA_BASE_URL}/${endpoint.replace(/^\/+/, "")}`;
+      : `${cleanBase}/${endpoint.replace(/^\/+/, "")}`;
 
     const playerEndpoint = `/wp-json/gnrd/v1/player?id=${tokens.pid}&t=${encodeURIComponent(tokens.tok)}`;
     const playerRes = await this.fetchFn(playerEndpoint, {
@@ -213,15 +224,22 @@ export class GetUrl implements StrategyGetUrl {
       },
     });
 
+    if (!playerRes.ok) {
+      throw new GnulaError(
+        `[Gnula] Player endpoint returned HTTP ${playerRes.status} for ${path}`,
+        playerRes.status
+      );
+    }
+
     const playerJson = (await playerRes.json()) as { p?: string };
     const payload = gnrdUnpack(playerJson.p || "");
 
     const langs = payload?.langs || [];
     if (langs.length === 0) {
-      throw new Error(`[Gnula] No streaming servers found for ${path}`);
+      throw new GnulaError(`[Gnula] No streaming servers found for ${path}`);
     }
 
-    // 3. Select language (prefer Latino, then first available)
+    // 3. Select language (prefer requested language, then Latino, then first available)
     const preferredLang = (options?.params?.lang as string | undefined)?.toLowerCase();
     const selectedLang =
       langs.find((l) => preferredLang && l.label.toLowerCase().includes(preferredLang)) ||
@@ -230,7 +248,7 @@ export class GetUrl implements StrategyGetUrl {
 
     const servers = selectedLang?.servers || [];
     if (servers.length === 0) {
-      throw new Error(`[Gnula] No servers found in language group for ${path}`);
+      throw new GnulaError(`[Gnula] No servers found in language group for ${path}`);
     }
 
     const fallbackCandidate = servers[0].src;
@@ -247,7 +265,9 @@ export class GetUrl implements StrategyGetUrl {
             headers: { Referer: referer },
           });
           if (res.ok) {
-            const fullVdUrl = vdUrl.startsWith("http") ? vdUrl : `${GNULA_BASE_URL}${vdUrl.startsWith("/") ? "" : "/"}${vdUrl}`;
+            const fullVdUrl = vdUrl.startsWith("http")
+              ? vdUrl
+              : `${cleanBase}${vdUrl.startsWith("/") ? "" : "/"}${vdUrl}`;
             return {
               url: fullVdUrl,
               fallbackUrl: server.src,

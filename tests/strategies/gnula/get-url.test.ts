@@ -254,3 +254,162 @@ test("GetUrl throws Error when no servers are available", async () => {
     /No streaming servers found/
   );
 });
+
+test("GetUrl resolves The Tube server to master stream", async () => {
+  const pageHtml = `
+    <html>
+      <script>
+        var _gnrdPid = 300;
+        var _gnrdTok = "tok_tube";
+        var RESOLVE='/panel/the-tube-resolve.php?code=', AUTH='&t=tt_auth_123';
+      </script>
+    </html>
+  `;
+
+  const payload = {
+    langs: [
+      {
+        label: "Latino",
+        servers: [
+          { title: "Servidor TheTube", src: "https://they.tube/e/tubeCode123" },
+        ],
+      },
+    ],
+  };
+  const jsonStr = JSON.stringify(payload);
+  const key = [103, 78, 55, 100];
+  const encoded = Buffer.from(jsonStr, "utf-8").map((byte, i) => byte ^ key[i & 3]);
+  const packedBase64 = Buffer.from(encoded).toString("base64");
+
+  const mockFetch: GnulaMockFetch = async (url: string) => {
+    if (url.includes("the-tube-test")) {
+      return new Response(pageHtml, { status: 200 });
+    }
+    if (url.includes("/wp-json/gnrd/v1/player")) {
+      return new Response(JSON.stringify({ p: packedBase64 }), { status: 200 });
+    }
+    if (url.includes("/panel/the-tube-resolve.php")) {
+      return new Response(JSON.stringify({ master: "https://cdn.they.tube/master.m3u8" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    return new Response("Not found", { status: 404 });
+  };
+
+  const getUrl = new GetUrl(mockFetch);
+  const result = await getUrl.operation("/ver/the-tube-test/");
+  assert.strictEqual(result.url, "https://cdn.they.tube/master.m3u8");
+  assert.strictEqual(result.fallbackUrl, "https://they.tube/e/tubeCode123");
+});
+
+test("GetUrl selects requested language via options.params.lang", async () => {
+  const pageHtml = `
+    <html>
+      <script>
+        var _gnrdPid = 400;
+        var _gnrdTok = "tok_lang";
+      </script>
+    </html>
+  `;
+
+  const payload = {
+    langs: [
+      {
+        label: "Latino",
+        servers: [{ title: "Latino Server", src: "https://unknown.com/e/latino" }],
+      },
+      {
+        label: "Subtitulado",
+        servers: [{ title: "Sub Server", src: "https://unknown.com/e/subtitulado" }],
+      },
+    ],
+  };
+  const jsonStr = JSON.stringify(payload);
+  const key = [103, 78, 55, 100];
+  const encoded = Buffer.from(jsonStr, "utf-8").map((byte, i) => byte ^ key[i & 3]);
+  const packedBase64 = Buffer.from(encoded).toString("base64");
+
+  const mockFetch: GnulaMockFetch = async (url: string) => {
+    if (url.includes("lang-test")) {
+      return new Response(pageHtml, { status: 200 });
+    }
+    if (url.includes("/wp-json/gnrd/v1/player")) {
+      return new Response(JSON.stringify({ p: packedBase64 }), { status: 200 });
+    }
+    return new Response("Not found", { status: 404 });
+  };
+
+  const getUrl = new GetUrl(mockFetch);
+  const result = await getUrl.operation("/ver/lang-test/", {
+    params: { lang: "subtitulado" },
+  });
+  assert.strictEqual(result.url, "https://unknown.com/e/subtitulado");
+});
+
+test("GetUrl skips page fetch when full tokens are provided in detailContext", async () => {
+  const payload = {
+    langs: [
+      {
+        label: "Latino",
+        servers: [{ title: "Direct Embed", src: "https://embed.example.com/e/direct" }],
+      },
+    ],
+  };
+  const jsonStr = JSON.stringify(payload);
+  const key = [103, 78, 55, 100];
+  const encoded = Buffer.from(jsonStr, "utf-8").map((byte, i) => byte ^ key[i & 3]);
+  const packedBase64 = Buffer.from(encoded).toString("base64");
+
+  let pageFetched = false;
+
+  const mockFetch: GnulaMockFetch = async (url: string) => {
+    if (url.includes("context-test")) {
+      pageFetched = true;
+      return new Response("<html></html>", { status: 200 });
+    }
+    if (url.includes("/wp-json/gnrd/v1/player?id=999&t=tok999")) {
+      return new Response(JSON.stringify({ p: packedBase64 }), { status: 200 });
+    }
+    return new Response("Not found", { status: 404 });
+  };
+
+  const getUrl = new GetUrl(mockFetch);
+  const result = await getUrl.operation("/ver/context-test/", {
+    detailContext: {
+      pid: "999",
+      tok: "tok999",
+      vdResolve: "/panel/vidara-resolve.php",
+    },
+  });
+
+  assert.strictEqual(pageFetched, false);
+  assert.strictEqual(result.url, "https://embed.example.com/e/direct");
+});
+
+test("GetUrl throws GnulaError when player endpoint fails with HTTP error", async () => {
+  const pageHtml = `
+    <html>
+      <script>
+        var _gnrdPid = 500;
+        var _gnrdTok = "tok_http_err";
+      </script>
+    </html>
+  `;
+
+  const mockFetch: GnulaMockFetch = async (url: string) => {
+    if (url.includes("error-test")) {
+      return new Response(pageHtml, { status: 200 });
+    }
+    if (url.includes("/wp-json/gnrd/v1/player")) {
+      return new Response("Forbidden", { status: 403 });
+    }
+    return new Response("Not found", { status: 404 });
+  };
+
+  const getUrl = new GetUrl(mockFetch);
+  await assert.rejects(
+    () => getUrl.operation("/ver/error-test/"),
+    /Player endpoint returned HTTP 403/
+  );
+});

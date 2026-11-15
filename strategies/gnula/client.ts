@@ -3,6 +3,16 @@ import nodeFetch, { type RequestInit, type Response } from "node-fetch";
 
 export const GNULA_BASE_URL = "https://ww3.gnulahd.nu/";
 
+export class GnulaError extends Error {
+  readonly statusCode?: number;
+
+  constructor(message: string, statusCode?: number) {
+    super(message);
+    this.name = "GnulaError";
+    this.statusCode = statusCode;
+  }
+}
+
 // Gnula uses a certificate chain that standard Node.js environments might reject.
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
