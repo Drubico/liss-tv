@@ -1,5 +1,4 @@
-import type { StrategyGetAllMovies } from "@/strategies/context";
-import type { MovieItem, MovieResponse } from "@/types/movie";
+import type { StrategyGetAllMovies, Movies, MediaItem } from "@/types/movie";
 import { serieslanFetch } from "./client";
 import type {
   SeriesLanItem,
@@ -10,7 +9,7 @@ import type {
 const TMDB_POSTER_BASE = "https://image.tmdb.org/t/p/w500";
 const TMDB_BACKDROP_BASE = "https://image.tmdb.org/t/p/original";
 
-export function mapSeriesLanItemToMovie(item: SeriesLanItem): MovieItem {
+export function mapSeriesLanItemToMovie(item: SeriesLanItem): MediaItem {
   const poster = item.poster_path
     ? item.poster_path.startsWith("http")
       ? item.poster_path
@@ -27,33 +26,31 @@ export function mapSeriesLanItemToMovie(item: SeriesLanItem): MovieItem {
     id: item.slug,
     title: item.title,
     year: item.year ? String(item.year) : "",
-    poster,
-    banner,
+    image: poster,
+    link: `/serie/${item.slug}`,
     type: "serie",
     provider: "serieslan",
     rating: item.vote_average ? String(item.vote_average) : "",
-    url: `/serie/${item.slug}`,
+    context: {
+      backgroundImage: banner,
+      catalog_item_id: item.catalog_item_id,
+    },
   };
 }
 
 export class GetAll implements StrategyGetAllMovies {
   async operation(
     search?: string,
-    filter?: string,
-    page: number = 1
-  ): Promise<MovieResponse> {
+    slug?: string,
+    pageNumber: number = 1
+  ): Promise<Movies | undefined> {
     // If the consumer explicitly requested movies, return an empty array gracefully
     // since SeriesLan does not configure/support upstream movies.
-    if (filter === "movies" || filter === "movie" || filter === "pelicula") {
+    if (slug === "movies" || slug === "movie" || slug === "pelicula") {
       return {
         movies: [],
-        pagination: {
-          currentPage: page,
-          totalPages: 0,
-          hasNextPage: false,
-          hasPrevPage: false,
-          total: 0,
-        },
+        lastPageNumber: 0,
+        hasMore: false,
       };
     }
 
@@ -61,38 +58,28 @@ export class GetAll implements StrategyGetAllMovies {
     if (search && search.trim().length > 0) {
       const searchUrl = `/api/rest/v1/search?q=${encodeURIComponent(
         search.trim()
-      )}&page=${page}`;
+      )}&page=${pageNumber}`;
       const res = await serieslanFetch<SeriesLanSearchResponse>(searchUrl);
       const items = res.items || [];
       const pagination = res.pagination;
 
       return {
         movies: items.map(mapSeriesLanItemToMovie),
-        pagination: {
-          currentPage: pagination?.page ?? page,
-          totalPages: pagination?.total_pages ?? 1,
-          hasNextPage: pagination?.has_next ?? false,
-          hasPrevPage: pagination?.has_prev ?? false,
-          total: pagination?.total ?? items.length,
-        },
+        lastPageNumber: pagination?.total_pages ?? 1,
+        hasMore: pagination?.has_next ?? false,
       };
     }
 
     // 2. Listing Catalog (Series)
-    const listUrl = `/api/rest/v1/listing?kind=series&order=recent&page=${page}`;
+    const listUrl = `/api/rest/v1/listing?kind=series&order=recent&page=${pageNumber}`;
     const res = await serieslanFetch<SeriesLanListingResponse>(listUrl);
     const items = res.items || [];
     const pagination = res.pagination;
 
     return {
       movies: items.map(mapSeriesLanItemToMovie),
-      pagination: {
-        currentPage: pagination?.page ?? page,
-        totalPages: pagination?.total_pages ?? 1,
-        hasNextPage: pagination?.has_next ?? false,
-        hasPrevPage: pagination?.has_prev ?? false,
-        total: pagination?.total ?? items.length,
-      },
+      lastPageNumber: pagination?.total_pages ?? 1,
+      hasMore: pagination?.has_next ?? false,
     };
   }
 }

@@ -6,7 +6,7 @@ import {
 } from "../../../strategies/serieslan/get-all.operation.ts";
 import type { SeriesLanItem } from "../../../strategies/serieslan/types.ts";
 
-test("mapSeriesLanItemToMovie maps item correctly to MovieItem domain model", () => {
+test("mapSeriesLanItemToMovie maps item correctly to MediaItem domain model", () => {
   const item: SeriesLanItem = {
     catalog_item_id: 12345,
     slug: "chicago-pd",
@@ -24,22 +24,21 @@ test("mapSeriesLanItemToMovie maps item correctly to MovieItem domain model", ()
   assert.strictEqual(movie.id, "chicago-pd");
   assert.strictEqual(movie.title, "Chicago P.D.");
   assert.strictEqual(movie.year, "2014");
-  assert.strictEqual(movie.poster, "https://image.tmdb.org/t/p/w500/poster.jpg");
-  assert.strictEqual(movie.banner, "https://image.tmdb.org/t/p/original/backdrop.jpg");
+  assert.strictEqual(movie.image, "https://image.tmdb.org/t/p/w500/poster.jpg");
+  assert.strictEqual(movie.link, "/serie/chicago-pd");
   assert.strictEqual(movie.type, "serie");
   assert.strictEqual(movie.provider, "serieslan");
   assert.strictEqual(movie.rating, "8.4");
-  assert.strictEqual(movie.url, "/serie/chicago-pd");
 });
 
 test("GetAll returns empty movies list without calling API when filter is movies", async () => {
   const getAll = new GetAll();
   const response = await getAll.operation(undefined, "movies", 1);
 
+  assert(response !== undefined);
   assert.deepStrictEqual(response.movies, []);
-  assert.strictEqual(response.pagination.total, 0);
-  assert.strictEqual(response.pagination.totalPages, 0);
-  assert.strictEqual(response.pagination.currentPage, 1);
+  assert.strictEqual(response.lastPageNumber, 0);
+  assert.strictEqual(response.hasMore, false);
 });
 
 test("GetAll fetches catalog and maps items when filter is series or undefined", async (t) => {
@@ -82,9 +81,11 @@ test("GetAll fetches catalog and maps items when filter is series or undefined",
   const getAll = new GetAll();
   const response = await getAll.operation(undefined, "series", 1);
 
+  assert(response !== undefined);
   assert.strictEqual(response.movies.length, 1);
   assert.strictEqual(response.movies[0].title, "Breaking Bad");
-  assert.strictEqual(response.pagination.total, 1);
+  assert.strictEqual(response.lastPageNumber, 1);
+  assert.strictEqual(response.hasMore, false);
 });
 
 test("GetAll executes keyword search when search query is provided", async (t) => {
@@ -127,6 +128,8 @@ test("GetAll executes keyword search when search query is provided", async (t) =
   const getAll = new GetAll();
   const response = await getAll.operation("dragon", undefined, 1);
 
+  assert(response !== undefined);
   assert.strictEqual(response.movies.length, 1);
   assert.strictEqual(response.movies[0].id, "dragon-ball-z");
+  assert.strictEqual(response.movies[0].link, "/serie/dragon-ball-z");
 });

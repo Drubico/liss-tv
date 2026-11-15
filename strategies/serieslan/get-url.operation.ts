@@ -1,5 +1,4 @@
-import type { StrategyGetMovieUrl } from "@/strategies/context";
-import type { MovieUrlResponse } from "@/types/movie";
+import type { StrategyGetUrl, Url, GetUrlOptions } from "@/types/movie";
 import { serieslanFetch, SeriesLanError } from "./client";
 import type { SeriesLanContentDetail } from "./types";
 
@@ -20,10 +19,21 @@ export function extractM3u8Stream(html: string): string | null {
 
 function parseCoordinates(
   link: string,
-  options?: { season?: number; episode?: number }
+  options?: GetUrlOptions
 ): { slug: string; season: number; episode: number } | null {
-  let season = options?.season;
-  let episode = options?.episode;
+  let season =
+    options?.season !== undefined
+      ? typeof options.season === "number"
+        ? options.season
+        : parseInt(options.season, 10)
+      : undefined;
+
+  let episode =
+    options?.episode !== undefined
+      ? typeof options.episode === "number"
+        ? options.episode
+        : parseInt(options.episode, 10)
+      : undefined;
 
   let urlObj: URL | null = null;
   try {
@@ -62,36 +72,33 @@ function parseCoordinates(
     }
   }
 
-  if (!slug || !season || !episode) {
+  if (!slug || !season || !episode || isNaN(season) || isNaN(episode)) {
     return null;
   }
 
   return { slug, season, episode };
 }
 
-export class GetUrl implements StrategyGetMovieUrl {
-  async operation(
-    link: string,
-    options?: {
-      context?: Record<string, unknown>;
-      season?: number;
-      episode?: number;
-    }
-  ): Promise<MovieUrlResponse> {
+export class GetUrl implements StrategyGetUrl {
+  async operation(path: string, options?: GetUrlOptions): Promise<Url> {
+    const ctx = (options?.detailContext ??
+      options?.params ??
+      (options as unknown as Record<string, unknown>)?.context) as
+      | Record<string, unknown>
+      | undefined;
+
     let playerUrl =
-      typeof options?.context?.player_url === "string"
-        ? options.context.player_url
-        : null;
+      typeof ctx?.player_url === "string" ? ctx.player_url : null;
 
     if (!playerUrl) {
-      const coords = parseCoordinates(link, options);
+      const coords = parseCoordinates(path, options);
       if (!coords) {
         throw new SeriesLanError(
-          `[SeriesLan] Invalid episode link or coordinates: "${link}"`
+          `[SeriesLan] Invalid episode link or coordinates: "${path}"`
         );
       }
 
-      let tmdbId = options?.context?.tmdb_id;
+      let tmdbId = ctx?.tmdb_id;
       if (!tmdbId) {
         const detail = await serieslanFetch<SeriesLanContentDetail>(
           `/api/rest/v1/content/serie/${coords.slug}`
@@ -158,8 +165,6 @@ export class GetUrl implements StrategyGetMovieUrl {
 
     return {
       url: masterM3u8,
-      quality: "auto",
-      provider: "serieslan",
     };
   }
 }

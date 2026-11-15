@@ -102,13 +102,14 @@ test("GetDetail maps series detail and batches episode loading across seasons", 
   assert.strictEqual(detail.image, "https://image.tmdb.org/t/p/w500/poster.jpg");
   assert.strictEqual(detail.backgroundImage, "https://image.tmdb.org/t/p/original/backdrop.jpg");
   assert.strictEqual(detail.episodes?.length, 1);
-  assert.strictEqual(detail.episodes[0].season, 1);
+  assert.strictEqual(detail.episodes[0].season, "1");
   assert.strictEqual(detail.episodes[0].episodes.length, 1);
 
   const ep = detail.episodes[0].episodes[0];
   assert.strictEqual(ep.numberEpisode, "1");
   assert.strictEqual(ep.title, "Pasado sangriento");
   assert.strictEqual(ep.link, "/serie/chicago-pd/player?season=1&episode=1");
+  assert.strictEqual(ep.caption, "2014-01-08");
   assert.strictEqual(ep.context?.tmdb_id, 58841);
   assert.strictEqual(ep.context?.player_url, "https://player.serieslan.live/e/tv/58841/1/1");
 });

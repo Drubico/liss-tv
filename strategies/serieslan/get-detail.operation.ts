@@ -1,5 +1,4 @@
-import type { StrategyGetMovieDetails } from "@/strategies/context";
-import type { Episode, StoredMovie } from "@/types/movie";
+import type { StrategyGetMovieDetails, Episode, Season, StoredMovie } from "@/types/movie";
 import { serieslanFetch } from "./client";
 import type {
   SeriesLanContentDetail,
@@ -55,14 +54,14 @@ export class GetDetail implements StrategyGetMovieDetails {
           : `${TMDB_BACKDROP_BASE}${item.backdrop_path}`
         : poster;
 
-      const seasonsData: Array<{ season: number; episodes: Episode[] }> = [];
+      const seasonsData: Season[] = [];
       const episodeSeasons = detail.episode_seasons || [];
 
       // Fetch episodes in bounded batches of 4 seasons to prevent rate-limiting or timeouts
       const itemId = item.catalog_item_id;
       for (let i = 0; i < episodeSeasons.length; i += BATCH_SIZE) {
         const batch = episodeSeasons.slice(i, i + BATCH_SIZE);
-        const batchPromises = batch.map(async (seasonInfo) => {
+        const batchPromises = batch.map(async (seasonInfo): Promise<Season> => {
           const seasonNum = seasonInfo.season;
           try {
             const epUrl = `/api/rest/v1/episodes?item_id=${itemId}&season=${seasonNum}&limit=100`;
@@ -81,7 +80,7 @@ export class GetDetail implements StrategyGetMovieDetails {
                 title: ep.title || `Episodio ${ep.episode}`,
                 image: epImage,
                 link: `/serie/${slug}/player?season=${seasonNum}&episode=${ep.episode}`,
-                caption: ep.air_date ?? undefined,
+                caption: ep.air_date ?? "",
                 context: {
                   tmdb_id: item.tmdb_id,
                   season: seasonNum,
@@ -93,7 +92,7 @@ export class GetDetail implements StrategyGetMovieDetails {
             });
 
             return {
-              season: seasonNum,
+              season: String(seasonNum),
               episodes: mappedEpisodes.sort(
                 (a, b) => parseInt(a.numberEpisode, 10) - parseInt(b.numberEpisode, 10)
               ),
@@ -103,7 +102,7 @@ export class GetDetail implements StrategyGetMovieDetails {
               `[SeriesLan] Error loading season ${seasonNum} for ${slug}:`,
               err
             );
-            return { season: seasonNum, episodes: [] };
+            return { season: String(seasonNum), episodes: [] };
           }
         });
 
@@ -115,7 +114,7 @@ export class GetDetail implements StrategyGetMovieDetails {
         }
       }
 
-      seasonsData.sort((a, b) => a.season - b.season);
+      seasonsData.sort((a, b) => parseInt(a.season, 10) - parseInt(b.season, 10));
 
       return {
         title: item.title,

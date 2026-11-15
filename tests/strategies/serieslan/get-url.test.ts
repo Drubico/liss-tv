@@ -36,7 +36,7 @@ test("extractM3u8Stream extracts master.m3u8 URL from vimeos HTML", () => {
   );
 });
 
-test("GetUrl resolves stream when player_url is present in context", async (t) => {
+test("GetUrl resolves stream when player_url is present in detailContext", async (t) => {
   const originalFetch = global.fetch;
   t.after(() => {
     global.fetch = originalFetch;
@@ -67,15 +67,13 @@ test("GetUrl resolves stream when player_url is present in context", async (t) =
 
   const getUrl = new GetUrl();
   const result = await getUrl.operation("/serie/chicago-pd/player?season=1&episode=1", {
-    context: {
+    detailContext: {
       player_url: "https://player.serieslan.live/e/tv/58841/1/1",
     },
   });
 
   assert(result !== undefined);
   assert.strictEqual(result.url, "https://s11.vimeos.net/master.m3u8?token=xyz");
-  assert.strictEqual(result.provider, "serieslan");
-  assert.strictEqual(result.quality, "auto");
 });
 
 test("GetUrl resolves stream by querying series TMDB ID when context is absent", async (t) => {
@@ -119,5 +117,4 @@ test("GetUrl resolves stream by querying series TMDB ID when context is absent",
     result.url,
     "https://s11.vimeos.net/master.m3u8?token=resolved"
   );
-  assert.strictEqual(result.provider, "serieslan");
 });
