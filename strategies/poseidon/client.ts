@@ -1,4 +1,4 @@
-import type { PoseidonNextData } from "./types";
+import type { PoseidonNextData } from "./types.ts";
 
 export const POSEIDON_BASE_URL = "https://www.poseidonhd2.co";
 
