@@ -2,6 +2,7 @@ import { MovieContext } from "@/strategies/context";
 import { SoloLatinoMovieBuilder } from "./solo-latino.build";
 import { GnulaMovieBuilder } from "./gnula.build";
 import { SerieslanMovieBuilder } from "./serieslan.build";
+import { RepelisPlusMovieBuilder } from "./repelisplus.build";
 import type { MovieBuilder } from "@/types/movie";
 
 export class MovieContextFactory {
@@ -9,6 +10,7 @@ export class MovieContextFactory {
     "solo-latino": new SoloLatinoMovieBuilder(),
     gnula: new GnulaMovieBuilder(),
     serieslan: new SerieslanMovieBuilder(),
+    repelisplus: new RepelisPlusMovieBuilder(),
   };
 
   private constructor() {}
@@ -25,7 +27,13 @@ export class MovieContextFactory {
     return new SerieslanMovieBuilder().build();
   }
 
-  static driver(name: "solo-latino" | "gnula" | "serieslan"): MovieContext {
+  static createRepelisPlusContext(): MovieContext {
+    return new RepelisPlusMovieBuilder().build();
+  }
+
+  static driver(
+    name: "solo-latino" | "gnula" | "serieslan" | "repelisplus",
+  ): MovieContext {
     const builder = MovieContextFactory.providers[name];
 
     if (!builder) {
