@@ -18,6 +18,7 @@ import FocusElementProvider from "@/components/providers/FocusElementProvider";
 import { pb, response } from "@/hooks/useAuth";
 import { useMovie } from "@/hooks/useMovie";
 import { useState, useEffect, useMemo } from "react";
+import { getPlayerHref, inferProviderFromLink } from "@/utils/navigation";
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -53,24 +54,6 @@ function ProgressBar({
   );
 }
 
-function getPlayerHref(link: string): string {
-  const clean = link.replace(/^\/+|\/+$/g, "");
-  const parts = clean.split("/");
-
-  if (parts[0] === "pelicula" || parts[0] === "serie") {
-    const type = parts[0];
-    const slug = parts[1] || "";
-    return `/${type}/${slug}/player`;
-  }
-
-  const gnulaMatch = clean.match(/^([^/]+)-\d+x\d+$/i);
-  if (gnulaMatch) {
-    return `/serie/${gnulaMatch[1]}/player`;
-  }
-
-  return `/${parts.slice(0, 2).join("/")}/player`;
-}
-
 function ContinueWatchingCard({
   item,
   onRemove,
@@ -85,7 +68,7 @@ function ContinueWatchingCard({
       ? Math.min((item.currentTime / item.duration) * 100, 100)
       : 0;
   const remaining = Math.max(item.duration - item.currentTime, 0);
-  const isSerie = item.link.includes("serie");
+  const isSerie = item.link.includes("serie") || Boolean(item.link.match(/-(\d+)x(\d+)/i));
 
   return (
     <div className="group relative h-full rounded-2xl overflow-hidden bg-[#131519] border border-white/[0.08] hover:border-white/20 transition-all duration-300 shadow-lg hover:shadow-[0_16px_40px_rgba(0,0,0,0.8)] cursor-pointer flex flex-col justify-between">
@@ -281,8 +264,18 @@ export default function ContinueWatchingPage() {
   const displayList = activeTab === "cloud" ? cloudList : localList;
 
   const handleCardClick = (item: ContinueWatching) => {
+    const provider =
+      item.provider ||
+      (item.context?.provider as string | undefined) ||
+      inferProviderFromLink(item.link, item.context);
+
     setMovieData({
       ...item,
+      provider,
+      context: {
+        ...item.context,
+        provider: (item.context?.provider as string | undefined) || provider,
+      },
       startTime: item.currentTime,
     });
 

@@ -1,12 +1,6 @@
 import type { Action } from "@/types/action";
 
-import TorControl, { type TorControlStatus } from "tor-control";
-
-export const torControl = new TorControl({
-  host: "127.0.0.1",
-  port: 9051,
-  persistent: true,
-});
+export { inferProviderFromLink, getPlayerHref } from "./navigation";
 
 export async function withTimeout<T>(
   promise: Promise<T>,
@@ -84,6 +78,7 @@ export function isUrlMediafire(url: string): boolean {
     /https:\/\/download[^\s"'><]+mediafire\.com[^\s"'><]+/i;
   return mediafireRegex.test(url);
 }
+
 /**
  * Extrae la URL canónica permanente de Mediafire (https://www.mediafire.com/file/<key>)
  * a partir de un enlace de descarga directa temporal o de una URL de proxy.
@@ -151,18 +146,4 @@ export async function getLinkMediafire(url: string) {
     console.error("❌ Error al obtener el enlace de Mediafire:", error);
     return null;
   }
-}
-
-export async function changeTorIdentity(): Promise<TorControlStatus | null> {
-  return new Promise((resolve, reject) => {
-    console.log("🔄 Intentando cambiar la identidad de Tor...");
-    torControl.signalNewnym((err, status) => {
-      if (err) {
-        console.error("❌ Error al cambiar la identidad de Tor:", err);
-        return reject(err);
-      }
-      console.log("✅ Identidad de Tor cambiada con éxito:", status);
-      resolve(status);
-    });
-  });
 }

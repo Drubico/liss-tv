@@ -87,6 +87,7 @@ export class GetDetail implements StrategyGetMovieDetails {
                   episode: ep.episode,
                   player_url: ep.player_url,
                   slug,
+                  provider: "serieslan",
                 },
               };
             });
@@ -142,11 +143,13 @@ export class GetDetail implements StrategyGetMovieDetails {
         duration: item.runtime ? `${item.runtime} min` : "",
         tags,
         caption: item.overview || detail.overview || "",
+        provider: "serieslan",
         episodes: seasonsData.length > 0 ? seasonsData : undefined,
         context: {
           tmdb_id: item.tmdb_id,
           slug,
           catalog_item_id: item.catalog_item_id,
+          provider: "serieslan",
         },
       };
     } catch (err) {

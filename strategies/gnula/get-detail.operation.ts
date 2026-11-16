@@ -147,6 +147,7 @@ function extractSeasons(
         ...baseContext,
         season: seasonNum,
         episode: epNum,
+        provider: "gnula",
       },
     };
 
@@ -233,8 +234,9 @@ export class GetDetail implements StrategyGetMovieDetails {
         duration,
         tags,
         caption,
+        provider: "gnula",
         episodes: seasons.length > 0 ? seasons : undefined,
-        context: Object.keys(gnulaContext).length > 0 ? gnulaContext : undefined,
+        context: Object.keys(gnulaContext).length > 0 ? { ...gnulaContext, provider: "gnula" } : { provider: "gnula" },
       };
 
       upsert(link, movieData);

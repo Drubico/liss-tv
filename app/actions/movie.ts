@@ -1,7 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { withTimeout, attempts } from "@/utils/utils";
+import { withTimeout, attempts, inferProviderFromLink } from "@/utils/utils";
 import { DriverRegistry } from "@/drivers/registry";
 import { GetUrlOptions, MovieDriver } from "@/types/movie";
 
@@ -43,14 +43,16 @@ export async function getAllMovies(
 }
 
 export async function getDetails(link: string, providerId?: string) {
-  const driver = await getActiveDriver(providerId);
+  const resolvedProvider = providerId || inferProviderFromLink(link);
+  const driver = await getActiveDriver(resolvedProvider);
   return await driver.getDetail(link);
 }
 
 export async function getMovieUrl(link: string, options?: GetUrlOptions) {
   const explicitProvider =
     (options?.params?.provider as string | undefined) ||
-    (options?.detailContext?.provider as string | undefined);
+    (options?.detailContext?.provider as string | undefined) ||
+    inferProviderFromLink(link, options?.detailContext || options?.params);
 
   const driver = await getActiveDriver(explicitProvider);
   return await attempts([

@@ -13,6 +13,7 @@ import { Spinner } from "./ui/Spinner";
 import FocusElementProvider from "./providers/FocusElementProvider";
 import FocusContextProvider from "./providers/FocusContextProvider";
 import { Url } from "@/types/movie";
+import { inferProviderFromLink } from "@/utils/navigation";
 
 const VideoPlayer = dynamic(() => import("@/components/VideoPlayer"), {
   ssr: false,
@@ -66,11 +67,19 @@ export function PlayerView() {
     const fetchMovieUrl = async () => {
       if (!moviePreview) return setLoading(false);
       try {
+        const explicitProvider =
+          moviePreview.provider ||
+          (moviePreview.context?.provider as string | undefined) ||
+          inferProviderFromLink(moviePreview.link, moviePreview.context);
+
         const content = await getMovieUrl(moviePreview.link, {
-          detailContext: moviePreview.context,
+          detailContext: {
+            ...moviePreview.context,
+            provider: explicitProvider,
+          },
           params: {
             ...moviePreview.context,
-            provider: moviePreview.provider,
+            provider: explicitProvider,
           },
         });
 
@@ -111,10 +120,16 @@ export function PlayerView() {
 
   if (!movieUrl || !primaryUrl)
     return (
-      <div className="flex items-center justify-center h-screen text-white bg-black">
+      <div className="flex flex-col items-center justify-center h-screen text-white bg-black gap-4 px-4 text-center">
         <p className="text-lg font-semibold">
           No se pudo obtener la URL del video.
         </p>
+        <button
+          onClick={() => router.back()}
+          className="px-5 py-2.5 rounded-xl bg-[#e50914] text-white font-bold hover:bg-[#b80710] transition-colors cursor-pointer"
+        >
+          Volver
+        </button>
       </div>
     );
 

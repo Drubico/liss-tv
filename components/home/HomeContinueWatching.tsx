@@ -9,6 +9,7 @@ import { useAuthentication } from "@/components/providers/context/AuthContext";
 import { useMovieStore } from "@/store/useMovieStore";
 import { analytics } from "@/analytics/event";
 import type { ContinueWatching } from "@/types/movie";
+import { getPlayerHref, inferProviderFromLink } from "@/utils/navigation";
 import FocusContextProvider from "@/components/providers/FocusContextProvider";
 import FocusElementProvider from "@/components/providers/FocusElementProvider";
 
@@ -189,20 +190,24 @@ export function HomeContinueWatching() {
   }, [items]);
 
   const handlePlay = (item: ContinueWatching) => {
-    const regex = /(?:serie|pelicula)\/[^\/\s?]+/;
+    const provider =
+      item.provider ||
+      (item.context?.provider as string | undefined) ||
+      inferProviderFromLink(item.link, item.context);
+
     setMovieData({
       ...item,
+      provider,
+      context: {
+        ...item.context,
+        provider,
+      },
       startTime: item.currentTime,
     });
     analytics.watchVideo(item.title || item.link, item.link);
 
-    const redirect = item.link.match(regex)?.[0];
-
-    if (!redirect) {
-      throw new Error(`Invalid link format: ${item.link}`);
-    }
-
-    router.push(`/${redirect}/player`);
+    const targetHref = getPlayerHref(item.link);
+    router.push(targetHref);
   };
 
   const handleRemove = async (item: ContinueWatching) => {

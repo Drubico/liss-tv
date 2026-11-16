@@ -72,8 +72,14 @@ export function useMovie() {
         return removeContinueWatching(moviePreview.link);
       }
 
-      const nextMovie = {
+      const resolvedProvider =
+        moviePreview.next.provider ||
+        (moviePreview.next.context?.provider as string | undefined) ||
+        moviePreview.provider;
+
+      const nextMovie: ContinueWatching = {
         ...moviePreview.next,
+        provider: resolvedProvider,
         currentTime: 0,
         duration: 0,
       };
@@ -86,7 +92,16 @@ export function useMovie() {
 
     if (Math.abs(currentTime - lastSavedTimeRef.current) < 20) return;
 
-    const updatedMovie = { ...moviePreview, currentTime, duration };
+    const resolvedProvider =
+      moviePreview.provider ||
+      (moviePreview.context?.provider as string | undefined);
+
+    const updatedMovie: ContinueWatching = {
+      ...moviePreview,
+      provider: resolvedProvider,
+      currentTime,
+      duration,
+    };
     store.addToContinueWatching(updatedMovie);
     lastSavedTimeRef.current = currentTime;
 
@@ -137,8 +152,15 @@ export function useMovie() {
   const handleNextEpisodeClick = async () => {
     if (!store.moviePreview?.next) return;
 
+    const nextMovie = store.moviePreview.next;
+    const resolvedProvider =
+      nextMovie.provider ||
+      (nextMovie.context?.provider as string | undefined) ||
+      store.moviePreview.provider;
+
     store.setMovieData({
-      ...store.moviePreview.next,
+      ...nextMovie,
+      provider: resolvedProvider,
       startTime: 0,
     });
 

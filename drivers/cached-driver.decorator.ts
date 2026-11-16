@@ -74,7 +74,20 @@ export class CachedDriverDecorator implements MovieDriver {
       !this.isPastDays(cached.updatedAt, 7) &&
       (!isSerie || cached?.episodes?.length)
     ) {
-      return cached;
+      return {
+        ...cached,
+        provider: cached.provider || this.id,
+        episodes: cached.episodes?.map((season) => ({
+          ...season,
+          episodes: season.episodes?.map((ep) => ({
+            ...ep,
+            context: {
+              ...ep.context,
+              provider: (ep.context?.provider as string | undefined) || this.id,
+            },
+          })),
+        })),
+      };
     }
 
     const fresh = await this.innerDriver.getDetail(link);
@@ -82,6 +95,16 @@ export class CachedDriverDecorator implements MovieDriver {
       const stamped = {
         ...fresh,
         provider: this.id,
+        episodes: fresh.episodes?.map((season) => ({
+          ...season,
+          episodes: season.episodes?.map((ep) => ({
+            ...ep,
+            context: {
+              ...ep.context,
+              provider: (ep.context?.provider as string | undefined) || this.id,
+            },
+          })),
+        })),
       };
       upsert(link, stamped);
       return stamped;
