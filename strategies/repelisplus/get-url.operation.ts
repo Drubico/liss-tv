@@ -19,6 +19,29 @@ export class GetUrl implements StrategyGetUrl {
       resolverFn ||
       (async (embedUrl: string) => {
         return resolveCyberlockerStream(embedUrl, async (u: string) => {
+          try {
+            const direct = await fetch(u, {
+              headers: {
+                "User-Agent":
+                  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+              },
+            });
+            if (direct.status === 404 || direct.status === 410) {
+              return "";
+            }
+            if (direct.ok) {
+              const text = await direct.text();
+              if (
+                !text.includes("Just a moment...") &&
+                !text.includes("challenges.cloudflare.com")
+              ) {
+                return text;
+              }
+            }
+          } catch {
+            // Direct fetch network error, fallback to flareFetchFn
+          }
           const res = await this.flareFetchFn(u);
           return res.text();
         });

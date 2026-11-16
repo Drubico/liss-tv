@@ -27,6 +27,9 @@ import nodeFetch from "node-fetch";
  */
 export function isBannedResponse(html: string): boolean {
   if (!html) return false;
+  if (html.includes("404 - Not found") || html.includes("404 Not Found")) {
+    return false;
+  }
   return (
     html.includes("banned-modal") ||
     html.includes("Cuenta suspendida") ||
@@ -655,6 +658,10 @@ export async function fetchFlare(
       ? ((await nodeFetch(url, fetchOptions as never)) as unknown as Response)
       : await fetch(url, fetchOptions);
 
+    if (directRes.status === 404 || directRes.status === 410) {
+      return directRes;
+    }
+
     const directText = await directRes.text();
     const isChallenge = isChallengeResponse(directText);
     const isBanned = isBannedResponse(directText);
@@ -668,7 +675,7 @@ export async function fetchFlare(
     }
 
     if (isBanned) {
-      console.warn(`[SoloLatino] Direct fetch detected ban modal on ${cacheKey}`);
+      console.warn(`[FlareSolverr] Direct fetch detected ban modal on ${cacheKey}`);
       if (options.proxyUrl) {
         ProxyPoolService.getInstance().markProxyFailed(options.proxyUrl, "Banned by site");
       }
@@ -688,9 +695,9 @@ export async function fetchFlare(
       return new Response(directText, { status: 200, headers: directRes.headers });
     }
 
-    console.info(`[SoloLatino] Direct HTTP encountered challenge (${directRes.status}). Invoking FlareSolverr fallback...`);
+    console.info(`[FlareSolverr] Direct HTTP encountered challenge (${directRes.status}). Invoking FlareSolverr fallback...`);
   } catch (directErr) {
-    console.warn(`[SoloLatino] Direct HTTP fetch exception:`, directErr);
+    console.warn(`[FlareSolverr] Direct HTTP fetch exception:`, directErr);
   }
 
   // 2. FALLBACK TO FLARESOLVERR (Only when direct fetch is actually blocked/challenged)
