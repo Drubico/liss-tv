@@ -38,7 +38,7 @@ export class CachedDriverDecorator implements MovieDriver {
 
   async getAll(query?: DriverQuery): Promise<Movies | undefined> {
     const key = this.buildCacheKey(query);
-    const cached = getAllData<Movies>(key);
+    const cached = getAllData<Movies>(this.id, key);
     const maxAgeHours = query?.search ? 1 : 8;
 
     if (cached && !this.isPastHours(cached.updatedAt, maxAgeHours)) {
@@ -56,7 +56,7 @@ export class CachedDriverDecorator implements MovieDriver {
         ...fresh,
         movies: stampedMovies,
       };
-      upsertAll<Movies>(key, stampedResult);
+      upsertAll<Movies>(this.id, key, stampedResult);
       return stampedResult;
     }
 
@@ -64,7 +64,7 @@ export class CachedDriverDecorator implements MovieDriver {
   }
 
   async getDetail(link: string): Promise<Omit<StoredMovie, "link" | "updatedAt"> | undefined> {
-    const cached = get(link);
+    const cached = get(this.id, link);
     const isSerie = link.includes("serie");
 
     if (
@@ -92,6 +92,10 @@ export class CachedDriverDecorator implements MovieDriver {
 
     const fresh = await this.innerDriver.getDetail(link);
     if (fresh) {
+      if (!fresh.title || fresh.title.trim() === "") {
+        return fresh;
+      }
+
       const stamped = {
         ...fresh,
         provider: this.id,
@@ -106,7 +110,7 @@ export class CachedDriverDecorator implements MovieDriver {
           })),
         })),
       };
-      upsert(link, stamped);
+      upsert(this.id, link, stamped);
       return stamped;
     }
 
