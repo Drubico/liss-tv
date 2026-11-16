@@ -41,7 +41,7 @@ export class GetUrl implements StrategyGetUrl {
     }
 
     // 2. Si SoloLatino tiene un enlace Mediafire canónico en SQLite, resolver enlace fresco
-    const cached = get(path);
+    const cached = get("sololatino", path);
     if (cached?.movieUrl) {
       const mediafireFileUrl = extractMediafireFileUrl(cached.movieUrl);
       if (mediafireFileUrl) {
@@ -52,7 +52,7 @@ export class GetUrl implements StrategyGetUrl {
           };
         }
       }
-      remove(path);
+      remove("sololatino", path);
     }
 
     return new Promise(async (resolve, reject) => {

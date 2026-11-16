@@ -24,7 +24,7 @@ export class GetAll implements StrategyGetAllMovies {
         ? "home"
         : `${slug}/page/${pageNumber}`;
 
-    const cached = getAllData<Movies>(key);
+    const cached = getAllData<Movies>("sololatino", key);
 
     const isPastHours = (dateString: string, hours: number): boolean =>
       (Date.now() - new Date(dateString).getTime()) / (1000 * 60 * 60) > hours;
@@ -104,7 +104,7 @@ export class GetAll implements StrategyGetAllMovies {
           : [];
 
         const searchData: Movies = { movies, lastPageNumber: 1, hasMore: false };
-        upsertAll<Movies>(key, searchData);
+        upsertAll<Movies>("sololatino", key, searchData);
         return searchData;
       }
 
@@ -143,7 +143,7 @@ export class GetAll implements StrategyGetAllMovies {
       const hasMore = currentPage < lastPageNumber;
       const data: Movies = { movies, lastPageNumber, hasMore };
 
-      upsertAll<Movies>(key, data);
+      upsertAll<Movies>("sololatino", key, data);
 
       return data;
     } catch (error) {

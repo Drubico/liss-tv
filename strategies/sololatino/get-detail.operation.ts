@@ -6,7 +6,7 @@ import * as cheerio from "cheerio";
 
 export class GetDetail implements StrategyGetMovieDetails {
   async operation(link: string): Promise<Omit<StoredMovie, "link" | "updatedAt"> | undefined> {
-    const cached = get(link);
+    const cached = get("sololatino", link);
     const isSerie = link.includes("serie");
 
     const isPastDays = (dateString: string, days: number): boolean => {
@@ -107,6 +107,10 @@ export class GetDetail implements StrategyGetMovieDetails {
         });
       }
 
+      if (!title || title.trim() === "") {
+        return undefined;
+      }
+
       const detail = {
         backgroundImage,
         image,
@@ -119,7 +123,7 @@ export class GetDetail implements StrategyGetMovieDetails {
         episodes: seasonsData,
       };
 
-      upsert(link, detail);
+      upsert("sololatino", link, detail);
       return detail;
     } catch (error) {
       console.error("Error occurred while fetching movie details:", error);

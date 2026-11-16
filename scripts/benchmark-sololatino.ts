@@ -25,7 +25,7 @@ async function runBenchmark() {
     console.log(`\n-----------------------------------------`);
     console.log(`🎬 Testing: ${moviePath}`);
     // Clear any local cache so we measure real extraction time
-    remove(moviePath);
+    remove("sololatino", moviePath);
 
     const start = performance.now();
     try {

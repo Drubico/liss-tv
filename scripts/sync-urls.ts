@@ -185,7 +185,7 @@ async function hydrateMetadataAndEpisodes(
     seriesCount++;
     const prefix = `[Series ${seriesCount}/${seriesRoots.size}]`;
 
-    const cached = get(serieLink);
+    const cached = get("sololatino", serieLink);
     if (cached?.episodes && cached.episodes.length > 0) {
       const epTotal = cached.episodes.reduce((acc, s) => acc + (s.episodes?.length || 0), 0);
       console.info(`${prefix} [CACHE] Already has ${epTotal} episode(s) across ${cached.episodes.length} season(s) for: ${serieLink}`);
@@ -217,7 +217,7 @@ async function hydrateMetadataAndEpisodes(
     movieCount++;
     const prefix = `[Movie ${movieCount}/${movieLinks.size}]`;
 
-    const cached = get(movieLink);
+    const cached = get("sololatino", movieLink);
     if (cached?.title && (cached?.caption || cached?.backgroundImage)) {
       continue; // Movie metadata already hydrated
     }

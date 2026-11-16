@@ -122,7 +122,7 @@ export class GetAll implements StrategyGetAllMovies {
     pageNumber = 1,
   ): Promise<Movies | undefined> {
     const key = buildCacheKey(search, slug, pageNumber);
-    const cached = getAllData<Movies>(key);
+    const cached = getAllData<Movies>("gnula", key);
     const ttlHours = search ? CACHE_TTL_SEARCH_HOURS : CACHE_TTL_CATALOG_HOURS;
 
     if (cached && !isCacheExpired(cached.updatedAt, ttlHours)) {
@@ -154,7 +154,7 @@ export class GetAll implements StrategyGetAllMovies {
       .filter((m): m is Movie => m !== null);
 
     const result: Movies = { movies, lastPageNumber: 1, hasMore: false };
-    upsertAll<Movies>(cacheKey, result);
+    upsertAll<Movies>("gnula", cacheKey, result);
     return result;
   }
 
@@ -184,7 +184,7 @@ export class GetAll implements StrategyGetAllMovies {
     const { hasMore, lastPageNumber } = parsePagination($, pageNumber);
 
     const result: Movies = { movies, lastPageNumber, hasMore };
-    upsertAll<Movies>(cacheKey, result);
+    upsertAll<Movies>("gnula", cacheKey, result);
     return result;
   }
 }

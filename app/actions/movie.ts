@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { withTimeout, attempts, inferProviderFromLink } from "@/utils/utils";
 import { DriverRegistry } from "@/drivers/registry";
 import { GetUrlOptions, MovieDriver } from "@/types/movie";
-import { get } from "@/services/movie.store";
+import { get, getAny } from "@/services/movie.store";
 
 const PROVIDER_COOKIE_NAME = "liss_provider";
 const DEFAULT_PROVIDER = "gnula";
@@ -44,17 +44,19 @@ export async function getAllMovies(
 }
 
 export async function getDetails(link: string, providerId?: string) {
-  const stored = get(link);
+  const stored = providerId ? get(providerId, link) : getAny(link);
   const resolvedProvider = providerId || stored?.provider || inferProviderFromLink(link);
   const driver = await getActiveDriver(resolvedProvider);
   return await driver.getDetail(link);
 }
 
 export async function getMovieUrl(link: string, options?: GetUrlOptions) {
-  const stored = get(link);
-  const explicitProvider =
+  const providerHint =
     (options?.params?.provider as string | undefined) ||
-    (options?.detailContext?.provider as string | undefined) ||
+    (options?.detailContext?.provider as string | undefined);
+  const stored = providerHint ? get(providerHint, link) : getAny(link);
+  const explicitProvider =
+    providerHint ||
     stored?.provider ||
     inferProviderFromLink(link, options?.detailContext || options?.params);
 
