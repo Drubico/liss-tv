@@ -7,7 +7,7 @@ import { GetUrlOptions, MovieDriver } from "@/types/movie";
 import { get } from "@/services/movie.store";
 
 const PROVIDER_COOKIE_NAME = "liss_provider";
-const DEFAULT_PROVIDER = "solo-latino";
+const DEFAULT_PROVIDER = "gnula";
 
 export async function getActiveProviderId(): Promise<string> {
   const cookieStore = await cookies();
