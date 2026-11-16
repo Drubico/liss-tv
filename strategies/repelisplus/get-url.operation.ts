@@ -3,6 +3,7 @@ import { resolveCachedStream } from "@/services/stream-cache.service";
 import { repelisFlareFetch } from "./client";
 import { RepelisPlusError } from "./types";
 import { resolveCyberlockerStream } from "./resolvers/index";
+import { decodeServerLink } from "./get-detail.operation";
 import * as cheerio from "cheerio";
 
 export class GetUrl implements StrategyGetUrl {
@@ -31,9 +32,11 @@ export class GetUrl implements StrategyGetUrl {
       return cached;
     }
 
-    // 2. Discover server embed URLs
+    // 2. Discover server embed URLs (decoding base64 if needed)
     const contextServers = (options?.detailContext?.servers as string[] | undefined) || [];
-    const serverUrls: string[] = [...contextServers];
+    const serverUrls: string[] = contextServers
+      .map(decodeServerLink)
+      .filter((s): s is string => Boolean(s) && s.startsWith("http"));
 
     if (serverUrls.length === 0) {
       try {
@@ -44,15 +47,21 @@ export class GetUrl implements StrategyGetUrl {
 
           $("[data-server]").each((_, el) => {
             const s = $(el).attr("data-server");
-            if (s && !serverUrls.includes(s)) {
-              serverUrls.push(s);
+            if (s) {
+              const decoded = decodeServerLink(s);
+              if (decoded && decoded.startsWith("http") && !serverUrls.includes(decoded)) {
+                serverUrls.push(decoded);
+              }
             }
           });
 
           $("iframe[src]").each((_, el) => {
             const s = $(el).attr("src");
-            if (s && !serverUrls.includes(s)) {
-              serverUrls.push(s);
+            if (s) {
+              const decoded = decodeServerLink(s);
+              if (decoded && decoded.startsWith("http") && !serverUrls.includes(decoded)) {
+                serverUrls.push(decoded);
+              }
             }
           });
         }

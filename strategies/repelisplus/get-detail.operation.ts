@@ -11,54 +11,111 @@ function isCacheExpired(dateString: string, maxAgeDays: number): boolean {
   return ageInDays > maxAgeDays;
 }
 
+function unwrapIframeUrl(url: string): string {
+  if (url.includes("iframe/?url=")) {
+    try {
+      const parsed = new URL(url);
+      const nested = parsed.searchParams.get("url");
+      if (nested && nested.startsWith("http")) return nested;
+    } catch {
+      // URL parsing failed
+    }
+  }
+  return url;
+}
+
+export function decodeServerLink(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return unwrapIframeUrl(trimmed);
+  }
+  try {
+    const decoded = Buffer.from(trimmed, "base64").toString("utf-8").trim();
+    if (decoded.startsWith("http://") || decoded.startsWith("https://")) {
+      return unwrapIframeUrl(decoded);
+    }
+  } catch {
+    // Decoding failure, keep raw
+  }
+  return trimmed;
+}
+
 export function parseDetailHtml(
   html: string,
   link: string,
 ): Omit<StoredMovie, "link" | "updatedAt"> {
   const $ = cheerio.load(html);
 
-  const title =
+  const rawTitle =
+    $("[itemprop='name']").first().text().trim() ||
     $("h1.title, h1").first().text().trim() ||
     $(".item-detail p").first().text().trim();
+  const title = rawTitle.replace(/^Ver\s+(?:Película|Pelicula|Serie)\s+/i, "").trim();
 
   const rawPoster =
-    $("img.poster, .poster img, img").first().attr("src") || "";
+    $("figure.poster img, .poster img, [itemprop='image']")
+      .not(".logo, .logo-image, [src*='logo']")
+      .first()
+      .attr("src") ||
+    $("figure img, .item-picture img")
+      .not(".logo, .logo-image, [src*='logo']")
+      .first()
+      .attr("src") ||
+    "";
   const image = normalizeUrl(rawPoster) || "/logo-with-background.png";
 
-  const backdropEl = $(".card-hover-backdrop, .backdrop, [data-backdrop]").first();
-  const rawBackdrop =
-    backdropEl.attr("data-backdrop") ||
-    backdropEl.css("background-image")?.replace(/^url\(["']?|["']?\)$/g, "") ||
-    "";
+  let rawBackdrop = "";
+  const backdropEl = $(".backdrop-image, .video-play, .card-hover-backdrop, [data-backdrop]").first();
+  const dataAttr = backdropEl.attr("data-backdrop");
+  if (dataAttr) {
+    rawBackdrop = dataAttr;
+  } else {
+    const style = backdropEl.attr("style") || "";
+    const bgMatch = style.match(/url\(['"]?(.*?)['"]?\)/i);
+    if (bgMatch && bgMatch[1] && !bgMatch[1].includes("play.png") && !bgMatch[1].includes("logo")) {
+      rawBackdrop = bgMatch[1];
+    }
+  }
   const backgroundImage = normalizeUrl(rawBackdrop) || image;
 
   const caption =
-    $(".overview, .sinopsis, p.caption, .card-hover-info-overview p")
+    $(".description p, [itemprop='description'] p, .overview, .sinopsis, p.caption, .card-hover-info-overview p")
       .first()
       .text()
-      .trim();
+      .trim() ||
+    $(".description, [itemprop='description']").first().text().trim();
 
-  const year = $(".year").first().text().trim();
-  const ratingRaw = $(".rating, .card-hover-rating").first().text().trim();
+  const year =
+    $("[itemprop='datePublished'], .year").first().text().trim() ||
+    $(".meta").text().match(/\b(19\d\d|20\d\d)\b/)?.[1] ||
+    "";
+
+  const ratingRaw = $(".rating, .score-rating, .card-hover-rating").first().text().trim();
   const rating = ratingRaw.replace(/^[☆★\s]+|[☆★\s]+$/g, "");
 
-  const tags = $(".genres li, .card-hover-info-genre li, .tag")
-    .map((_, el) => $(el).text().trim())
+  const tags = $("[itemprop='genre'], .genres li, .card-hover-info-genre li, .tag")
+    .map((_, el) => $(el).text().replace(/,\s*$/, "").trim())
     .get()
     .filter(Boolean);
 
-  // Extract server links if present
+  // Extract server links if present and decode base64
   const serverLinks: string[] = [];
   $("[data-server]").each((_, el) => {
     const s = $(el).attr("data-server");
-    if (s && !serverLinks.includes(s)) {
-      serverLinks.push(s);
+    if (s) {
+      const decoded = decodeServerLink(s);
+      if (decoded && !serverLinks.includes(decoded)) {
+        serverLinks.push(decoded);
+      }
     }
   });
   $("iframe[src]").each((_, el) => {
     const s = $(el).attr("src");
-    if (s && !serverLinks.includes(s)) {
-      serverLinks.push(s);
+    if (s) {
+      const decoded = decodeServerLink(s);
+      if (decoded && !serverLinks.includes(decoded)) {
+        serverLinks.push(decoded);
+      }
     }
   });
 
@@ -142,8 +199,12 @@ export class GetDetail implements StrategyGetMovieDetails {
   async operation(link: string): Promise<Omit<StoredMovie, "link" | "updatedAt"> | undefined> {
     const cached = get(link);
     const isSerie = link.includes("serie");
+    const hasBadLogoImage =
+      cached?.backgroundImage?.includes("repelisplus-logo.png") ||
+      cached?.image?.includes("repelisplus-logo.png");
 
     if (
+      !hasBadLogoImage &&
       cached?.title &&
       cached?.image &&
       cached?.backgroundImage &&
@@ -161,10 +222,13 @@ export class GetDetail implements StrategyGetMovieDetails {
       if (!res.ok) {
         return undefined;
       }
+
       const html = await res.text();
-      const movieData = parseDetailHtml(html, link);
-      upsert(link, movieData);
-      return movieData;
+      const parsed = parseDetailHtml(html, link);
+
+      upsert(link, parsed);
+
+      return parsed;
     } catch (err) {
       console.error(`[RepelisPlus] GetDetail failed for "${link}":`, err);
       return undefined;

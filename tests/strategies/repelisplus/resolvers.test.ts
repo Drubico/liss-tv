@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { unpackPackedJs, extractM3u8FromStreamwish } from "@/strategies/repelisplus/resolvers/streamwish";
 import { extractM3u8FromVoe } from "@/strategies/repelisplus/resolvers/voe";
 import { extractM3u8FromFilelions } from "@/strategies/repelisplus/resolvers/filelions";
+import { extractM3u8FromNupload } from "@/strategies/repelisplus/resolvers/nupload";
 import { resolveCyberlockerStream } from "@/strategies/repelisplus/resolvers/index";
 
 describe("Streamwish Packed JS Unpacker", () => {
@@ -47,6 +48,46 @@ describe("Filelions Stream Extractor", () => {
   });
 });
 
+describe("Nupload Stream Extractor", () => {
+  it("should extract direct stream URL by decoding cipher array with subtraction offset and session", () => {
+    // Generate valid test payload: "https://sv1.lat/" with offset 1000
+    // "h" -> 104 -> 1104 -> "1104" in b64
+    const offset = 1000;
+    const targetUrl = "https://sv1.lat/";
+    const b64Items = targetUrl.split("").map((ch) => {
+      const code = ch.charCodeAt(0) + offset;
+      return Buffer.from(`foo${code}bar`).toString("base64");
+    });
+
+    const html = `
+      <script>
+        var cipherArr = ${JSON.stringify(b64Items)};
+      </script>
+      <script>
+        var resUrl = ""; cipherArr.forEach(function Oym(value) { resUrl += String.fromCharCode(parseInt(atob(value).replace(/\\D/g,'')) - ${offset}); });
+        var sesz="my-session-key-123";
+      </script>
+    `;
+
+    const result = extractM3u8FromNupload(html);
+    assert.ok(result);
+    assert.equal(result.type, "stream");
+    assert.equal(result.url, "https://sv1.lat/?s=my-session-key-123");
+  });
+
+  it("should extract nested iframe URL when Nupload acts as wrapper", () => {
+    const html = `
+      <html><body>
+        <iframe src="https://voe.sx/e/testembed123" width="100%" height="100%"></iframe>
+      </body></html>
+    `;
+    const result = extractM3u8FromNupload(html);
+    assert.ok(result);
+    assert.equal(result.type, "iframe");
+    assert.equal(result.url, "https://voe.sx/e/testembed123");
+  });
+});
+
 describe("Cyberlocker Resolver Cascade", () => {
   it("should cascade and resolve valid stream for supported hoster", async () => {
     const mockFetcher = async (url: string) => {
@@ -58,5 +99,20 @@ describe("Cyberlocker Resolver Cascade", () => {
 
     const stream = await resolveCyberlockerStream("https://streamwish.to/e/123", mockFetcher);
     assert.equal(stream, "https://cdn.streamwish.to/master.m3u8");
+  });
+
+  it("should unwrap nupload iframe wrappers and resolve target hoster stream", async () => {
+    const mockFetcher = async (url: string) => {
+      if (url.includes("voe.sx")) {
+        return `<script>let sources = {"hls": "https://delivery.voe.sx/hls/master.m3u8"};</script>`;
+      }
+      return "";
+    };
+
+    const stream = await resolveCyberlockerStream(
+      "https://nupload.my/iframe/?url=https%3A%2F%2Fvoe.sx%2Fe%2Ftest456",
+      mockFetcher,
+    );
+    assert.equal(stream, "https://delivery.voe.sx/hls/master.m3u8");
   });
 });
