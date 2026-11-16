@@ -12,9 +12,6 @@ export function inferProviderFromLink(
   }
   if (!link) return undefined;
   const clean = link.toLowerCase();
-  if (clean.includes("repelisplus")) {
-    return "repelisplus";
-  }
   if (
     clean.includes("serieslan") ||
     Boolean(context?.player_url) ||
