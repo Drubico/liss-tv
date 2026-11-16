@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { CachedDriverDecorator } from "@/drivers/cached-driver.decorator";
-import type { MovieDriver, StoredMovie } from "@/types/movie";
+import type { MovieDriver } from "@/types/movie";
 import { get, clearProvider } from "@/services/movie.store";
 
 test("CachedDriverDecorator stores and retrieves details scoped to its own provider ID", async () => {
@@ -13,7 +13,7 @@ test("CachedDriverDecorator stores and retrieves details scoped to its own provi
     id: "test-provider-a",
     name: "Test Provider A",
     async getAll() { return undefined; },
-    async getDetail(link: string) {
+    async getDetail(_link: string) {
       innerCallsA++;
       return {
         title: "Test Movie from Provider A",
@@ -30,7 +30,7 @@ test("CachedDriverDecorator stores and retrieves details scoped to its own provi
     id: "test-provider-b",
     name: "Test Provider B",
     async getAll() { return undefined; },
-    async getDetail(link: string) {
+    async getDetail(_link: string) {
       innerCallsB++;
       return {
         title: "Test Movie from Provider B",
@@ -70,7 +70,7 @@ test("CachedDriverDecorator does not cache empty details from innerDriver", asyn
     async getAll() { return undefined; },
     async getDetail() {
       innerCalls++;
-      return { title: "" } as any;
+      return { title: "", image: "", backgroundImage: "" };
     },
     async getUrl() { return { url: "" }; },
   };

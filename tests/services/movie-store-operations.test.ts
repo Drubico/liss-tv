@@ -24,7 +24,7 @@ test("upsert and get isolate media by provider", () => {
 
 test("getAny finds cached item across any provider", () => {
   const item = getAny("/pelicula/spiderman");
-  assert.ok(item && item.title.includes("Spider-Man"));
+  assert.ok(item && item.title?.includes("Spider-Man"));
 });
 
 test("remove deletes only for the specified provider", () => {

@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
           const existing = getAny(pathParam);
           const provider = existing?.provider || "sololatino";
           upsert(provider, pathParam, { movieUrl: getManifestAppUrl(pathParam) });
-        } catch (_) {}
+        } catch {}
 
         return new NextResponse(storedManifest, {
           status: 200,
@@ -90,8 +90,10 @@ export async function GET(req: NextRequest) {
         void saveManifest(pathParam, rewrittenBody)
           .then((savedAppUrl) => {
             try {
-              upsert(pathParam, { movieUrl: savedAppUrl });
-            } catch (_) {}
+              const existing = getAny(pathParam);
+              const provider = existing?.provider || "sololatino";
+              upsert(provider, pathParam, { movieUrl: savedAppUrl });
+            } catch {}
           })
           .catch((err) => {
             console.warn(`[MinIO] Background save failed for ${pathParam}:`, err);
