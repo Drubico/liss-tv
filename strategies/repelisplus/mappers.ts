@@ -5,14 +5,24 @@ import { REPELISPLUS_BASE_URL } from "./client";
 export function normalizeUrl(urlOrPath: string | undefined | null): string {
   if (!urlOrPath) return "";
   const trimmed = urlOrPath.trim();
-  if (trimmed.startsWith("//")) {
-    return `https:${trimmed}`;
-  }
-  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+  if (trimmed.startsWith("/api/image")) {
     return trimmed;
   }
-  const cleanPath = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
-  return `${REPELISPLUS_BASE_URL}${cleanPath}`;
+  let absolute = trimmed;
+  if (trimmed.startsWith("//")) {
+    absolute = `https:${trimmed}`;
+  } else if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
+    const cleanPath = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+    absolute = `${REPELISPLUS_BASE_URL}${cleanPath}`;
+  }
+
+  // RepelisPlus CDN blocks direct browser/optimizer hotlinking with Cloudflare 403.
+  // Route CDN images through the application image proxy.
+  if (absolute.includes("repelisplus.buzz/cdn/")) {
+    return `/api/image?url=${encodeURIComponent(absolute)}`;
+  }
+
+  return absolute;
 }
 
 export function cleanLinkToPath(link: string | undefined | null): string {

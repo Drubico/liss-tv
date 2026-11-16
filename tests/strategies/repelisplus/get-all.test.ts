@@ -30,8 +30,14 @@ describe("RepelisPlus GetAll Operation", () => {
     assert.equal(items.length, 1);
     assert.equal(items[0].title, "Silent Night");
     assert.equal(items[0].link, "/pelicula/silent-night-venganza-silenciosa-zsbl/");
-    assert.equal(items[0].image, "https://repelisplus.buzz/cdn/p/v2/w1/sample.webp");
-    assert.equal(items[0].context?.backgroundImage, "https://repelisplus.buzz/cdn/b/v2/w0/backdrop.webp");
+    assert.equal(
+      items[0].image,
+      "/api/image?url=https%3A%2F%2Frepelisplus.buzz%2Fcdn%2Fp%2Fv2%2Fw1%2Fsample.webp",
+    );
+    assert.equal(
+      items[0].context?.backgroundImage,
+      "/api/image?url=https%3A%2F%2Frepelisplus.buzz%2Fcdn%2Fb%2Fv2%2Fw0%2Fbackdrop.webp",
+    );
     assert.equal(items[0].year, "2023");
     assert.deepEqual(items[0].context?.tags, ["Acción", "Crimen"]);
   });

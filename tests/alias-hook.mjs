@@ -5,6 +5,10 @@ import { existsSync } from "node:fs";
 const rootDir = process.cwd();
 
 export async function resolve(specifier, context, nextResolve) {
+  if (specifier === "next/server") {
+    return nextResolve("next/server.js", context);
+  }
+
   if (specifier.startsWith("@/")) {
     const subpath = specifier.slice(2);
     const fullPath = pathResolve(rootDir, subpath);
