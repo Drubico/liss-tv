@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { withTimeout, attempts, inferProviderFromLink } from "@/utils/utils";
 import { DriverRegistry } from "@/drivers/registry";
 import { GetUrlOptions, MovieDriver } from "@/types/movie";
+import { get } from "@/services/movie.store";
 
 const PROVIDER_COOKIE_NAME = "liss_provider";
 const DEFAULT_PROVIDER = "solo-latino";
@@ -43,23 +44,40 @@ export async function getAllMovies(
 }
 
 export async function getDetails(link: string, providerId?: string) {
-  const resolvedProvider = providerId || inferProviderFromLink(link);
+  const stored = get(link);
+  const resolvedProvider = providerId || stored?.provider || inferProviderFromLink(link);
   const driver = await getActiveDriver(resolvedProvider);
   return await driver.getDetail(link);
 }
 
 export async function getMovieUrl(link: string, options?: GetUrlOptions) {
+  const stored = get(link);
   const explicitProvider =
     (options?.params?.provider as string | undefined) ||
     (options?.detailContext?.provider as string | undefined) ||
+    stored?.provider ||
     inferProviderFromLink(link, options?.detailContext || options?.params);
+
+  const mergedOptions: GetUrlOptions = {
+    ...options,
+    detailContext: {
+      ...stored?.context,
+      ...options?.detailContext,
+      provider: explicitProvider,
+    },
+    params: {
+      ...stored?.context,
+      ...options?.params,
+      provider: explicitProvider,
+    },
+  };
 
   const driver = await getActiveDriver(explicitProvider);
   return await attempts([
     {
       execute: () =>
         withTimeout(
-          driver.getUrl(link, options),
+          driver.getUrl(link, mergedOptions),
           60000,
           new Error("Error al obtener la URL del video"),
         ),

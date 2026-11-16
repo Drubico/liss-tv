@@ -1,10 +1,10 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
-import { getMovieUrl } from "@/app/actions/movie";
+import { getMovieUrl, getDetails } from "@/app/actions/movie";
 import { type MediaPlayerInstance } from "@vidstack/react";
 import NextEpisode from "./ui/NextEpisode";
 import { useMovie } from "@/hooks/useMovie";
@@ -12,7 +12,7 @@ import { useMovieStore } from "@/store/useMovieStore";
 import { Spinner } from "./ui/Spinner";
 import FocusElementProvider from "./providers/FocusElementProvider";
 import FocusContextProvider from "./providers/FocusContextProvider";
-import { Url } from "@/types/movie";
+import { MoviePreview, Url } from "@/types/movie";
 import { inferProviderFromLink } from "@/utils/navigation";
 
 const VideoPlayer = dynamic(() => import("@/components/VideoPlayer"), {
@@ -26,6 +26,7 @@ const VideoPlayer = dynamic(() => import("@/components/VideoPlayer"), {
 
 export function PlayerView() {
   const router = useRouter();
+  const pathname = usePathname();
   const {
     syncCurrentToPocketBase,
     syncToLocal,
@@ -36,6 +37,7 @@ export function PlayerView() {
 
   const [movieUrl, setMovieUrl] = useState<Url | null>(null);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const lastSavedTimeRef = useRef<number>(0);
 
   const THRESHOLD_PROGRESS_SECONDS = 180; //SEGUNDOS ANTES DE TERMINAR EL VIDEO
@@ -64,40 +66,103 @@ export function PlayerView() {
   }, [syncInitEventListener]);
 
   useEffect(() => {
-    const fetchMovieUrl = async () => {
-      if (!moviePreview) return setLoading(false);
-      try {
-        const explicitProvider =
-          moviePreview.provider ||
-          (moviePreview.context?.provider as string | undefined) ||
-          inferProviderFromLink(moviePreview.link, moviePreview.context);
+    let isCancelled = false;
 
-        const content = await getMovieUrl(moviePreview.link, {
+    const fetchMovieUrl = async () => {
+      let preview = moviePreview;
+
+      // Recover moviePreview if null (e.g. browser refresh on /player route)
+      if (!preview && pathname) {
+        const cleanLink = pathname.replace(/\/player\/?$/, "");
+        if (cleanLink && cleanLink !== "/") {
+          try {
+            const details = await getDetails(cleanLink);
+            if (details && !isCancelled) {
+              const recoveredPreview: MoviePreview = {
+                title: details.title || "",
+                link: cleanLink,
+                image: details.image || "",
+                backgroundImage: details.backgroundImage,
+                provider: details.provider,
+                context: details.context,
+                startTime: 0,
+              };
+              preview = recoveredPreview;
+              store.setMovieData(recoveredPreview);
+            }
+          } catch {
+            // Ignored detail recovery failure
+          }
+        }
+      }
+
+      if (!preview) {
+        if (!isCancelled) setLoading(false);
+        return;
+      }
+
+      try {
+        setErrorMessage(null);
+        const explicitProvider =
+          preview.provider ||
+          (preview.context?.provider as string | undefined) ||
+          inferProviderFromLink(preview.link, preview.context);
+
+        const content = await getMovieUrl(preview.link, {
           detailContext: {
-            ...moviePreview.context,
+            ...preview.context,
             provider: explicitProvider,
           },
           params: {
-            ...moviePreview.context,
+            ...preview.context,
             provider: explicitProvider,
           },
         });
 
-        setMovieUrl(content as Url);
+        if (!isCancelled) {
+          setMovieUrl(content as Url);
+        }
       } catch (error) {
-        console.error(error);
+        if (!isCancelled) {
+          console.error(error);
+          setErrorMessage(
+            error instanceof Error
+              ? error.message
+              : "No se pudo cargar el video para este contenido.",
+          );
+        }
       } finally {
-        setLoading(false);
+        if (!isCancelled) {
+          setLoading(false);
+        }
       }
     };
 
     fetchMovieUrl();
-  }, [moviePreview]);
+    return () => {
+      isCancelled = true;
+    };
+  }, [moviePreview, pathname]);
 
   if (loading)
     return (
       <div className="flex items-center justify-center h-screen text-white bg-black">
         <Spinner size="lg"></Spinner>
+      </div>
+    );
+
+  if (errorMessage)
+    return (
+      <div className="flex flex-col items-center justify-center h-screen text-white bg-black gap-4 px-4 text-center">
+        <p className="text-lg font-semibold text-red-400 max-w-md">
+          {errorMessage}
+        </p>
+        <button
+          onClick={() => router.back()}
+          className="px-6 py-2.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium transition cursor-pointer"
+        >
+          Volver
+        </button>
       </div>
     );
 

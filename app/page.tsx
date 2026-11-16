@@ -119,6 +119,8 @@ export default function Home() {
           caption: heroDetails?.caption,
           tags: heroDetails?.tags,
           duration: heroDetails?.duration,
+          provider: heroDetails?.provider || movies[0].provider,
+          context: heroDetails?.context,
         }
       : null;
 

@@ -95,6 +95,7 @@ export function MovieCard({ movie }: { movie: Movie }) {
                     image: movie.image,
                     title,
                     link: movie.link,
+                    provider: movie.provider,
                   }}
                   redirectDetails
                   key={movie.link}

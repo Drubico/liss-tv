@@ -18,6 +18,8 @@ export interface HomeHeroMovie {
   caption?: string;
   tags?: string[];
   duration?: string;
+  provider?: string;
+  context?: Record<string, unknown>;
 }
 
 interface HomeHeroProps {
@@ -46,6 +48,8 @@ export function HomeHero({ movie }: HomeHeroProps) {
       link: movie.link,
       image: movie.image,
       backgroundImage: movie.backgroundImage,
+      provider: movie.provider,
+      context: movie.context,
       startTime: 0,
     });
     analytics.watchVideo(movie.title, movie.link);
