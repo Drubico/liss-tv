@@ -28,22 +28,24 @@ function migrateJsonIfPresent(db: DatabaseType): void {
     const raw = fs.readFileSync(jsonPath, "utf-8");
     const json = JSON.parse(raw) as Record<string, LegacyJsonEntry>;
     const insert = db.prepare(`
-      INSERT OR REPLACE INTO movie_cache (key, data, updated_at)
-      VALUES (?, ?, ?)
+      INSERT OR REPLACE INTO movie_cache (provider, key, data, updated_at)
+      VALUES (?, ?, ?, ?)
     `);
 
     const transaction = db.transaction(() => {
       for (const [key, value] of Object.entries(json)) {
         if (!value) continue;
-        if (value.data !== undefined && typeof value.updatedAt === "string") {
-          insert.run(key, JSON.stringify(value.data), value.updatedAt);
-        } else {
-          const updatedAt =
-            typeof value.updatedAt === "string"
-              ? value.updatedAt
-              : new Date().toISOString();
-          insert.run(key, JSON.stringify(value), updatedAt);
-        }
+        const entryData = value.data !== undefined ? value.data : value;
+        const parsed = (typeof entryData === "object" && entryData !== null ? entryData : {}) as Record<string, unknown>;
+        if (typeof parsed.title === "string" && parsed.title.trim() === "") continue;
+
+        const provider = typeof parsed.provider === "string" && parsed.provider.trim() ? parsed.provider.trim() : "sololatino";
+        const updatedAt =
+          typeof value.updatedAt === "string"
+            ? value.updatedAt
+            : new Date().toISOString();
+
+        insert.run(provider, key, JSON.stringify(entryData), updatedAt);
       }
     });
 
@@ -163,52 +165,79 @@ export function normalizeKey(key: string): string {
   return clean;
 }
 
-/** Upsert by link — merges partial data, never duplicates */
+/** Upsert by link and provider — merges partial data, never duplicates */
 export function upsert(
+  provider: string,
   link: string,
   data: Partial<Omit<StoredMovie, "link" | "updatedAt">>,
-): StoredMovie {
+): StoredMovie | null {
+  if (!provider || typeof provider !== "string" || !link) return null;
   const db = getDatabase();
   const normalized = normalizeKey(link);
-  const existing = get(link) || ({} as StoredMovie);
+  const existing = get(provider, link) || ({} as StoredMovie);
+
+  const targetTitle = data.title !== undefined ? data.title : existing.title;
+  // Guard against persisting empty or corrupt movie items
+  if ((!targetTitle || targetTitle.trim() === "") && !data.movieUrl) {
+    return null;
+  }
+
   const updatedAt = new Date().toISOString();
   const merged: StoredMovie = {
     ...existing,
     ...data,
+    provider: provider.trim(),
     link: normalized,
     updatedAt,
   };
 
   const stmt = db.prepare(`
-    INSERT INTO movie_cache (key, data, updated_at)
-    VALUES (?, ?, ?)
-    ON CONFLICT(key) DO UPDATE SET
+    INSERT INTO movie_cache (provider, key, data, updated_at)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(provider, key) DO UPDATE SET
       data = excluded.data,
       updated_at = excluded.updated_at
   `);
 
-  stmt.run(normalized, JSON.stringify(merged), updatedAt);
+  stmt.run(provider.trim(), normalized, JSON.stringify(merged), updatedAt);
   return merged;
 }
 
-export function upsertAll<T>(prefix: string, data: T): void {
+export function upsertAll<T>(provider: string, key: string, data: T): void {
+  if (!provider || !key || !data) return;
   const db = getDatabase();
   const updatedAt = new Date().toISOString();
   const stmt = db.prepare(`
-    INSERT INTO movie_cache (key, data, updated_at)
-    VALUES (?, ?, ?)
-    ON CONFLICT(key) DO UPDATE SET
+    INSERT INTO movie_cache (provider, key, data, updated_at)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(provider, key) DO UPDATE SET
       data = excluded.data,
       updated_at = excluded.updated_at
   `);
 
-  stmt.run(prefix, JSON.stringify(data), updatedAt);
+  stmt.run(provider.trim(), key, JSON.stringify(data), updatedAt);
 }
 
-export function get(link: string): StoredMovie | undefined {
+export function get(provider: string, link: string): StoredMovie | undefined {
+  if (!provider || !link) return undefined;
   const db = getDatabase();
   const normalized = normalizeKey(link);
-  const stmt = db.prepare(`SELECT data FROM movie_cache WHERE key = ? OR key = ?`);
+  const stmt = db.prepare(`SELECT data FROM movie_cache WHERE provider = ? AND (key = ? OR key = ?)`);
+  const row = stmt.get(provider.trim(), normalized, link) as { data: string } | undefined;
+  if (!row) return undefined;
+  try {
+    return JSON.parse(row.data) as StoredMovie;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Fallback helper to retrieve any valid cached entry across all providers */
+export function getAny(link: string): StoredMovie | undefined {
+  if (!link) return undefined;
+  const db = getDatabase();
+  const normalized = normalizeKey(link);
+  const stmt = db.prepare(`SELECT data FROM movie_cache WHERE key = ? OR key = ? LIMIT 1`);
   const row = stmt.get(normalized, link) as { data: string } | undefined;
   if (!row) return undefined;
   try {
@@ -218,19 +247,22 @@ export function get(link: string): StoredMovie | undefined {
   }
 }
 
-export function remove(link: string): void {
+export function remove(provider: string, link: string): void {
+  if (!provider || !link) return;
   const db = getDatabase();
   const normalized = normalizeKey(link);
-  const stmt = db.prepare(`DELETE FROM movie_cache WHERE key = ? OR key = ?`);
-  stmt.run(normalized, link);
+  const stmt = db.prepare(`DELETE FROM movie_cache WHERE provider = ? AND (key = ? OR key = ?)`);
+  stmt.run(provider.trim(), normalized, link);
 }
 
 export function getAllData<A>(
+  provider: string,
   key: string,
 ): { data: A; updatedAt: string } | undefined {
+  if (!provider || !key) return undefined;
   const db = getDatabase();
-  const stmt = db.prepare(`SELECT data, updated_at FROM movie_cache WHERE key = ?`);
-  const row = stmt.get(key) as { data: string; updated_at: string } | undefined;
+  const stmt = db.prepare(`SELECT data, updated_at FROM movie_cache WHERE provider = ? AND key = ?`);
+  const row = stmt.get(provider.trim(), key) as { data: string; updated_at: string } | undefined;
   if (!row) return undefined;
   try {
     return {
@@ -240,4 +272,11 @@ export function getAllData<A>(
   } catch {
     return undefined;
   }
+}
+
+export function clearProvider(provider: string): void {
+  if (!provider) return;
+  const db = getDatabase();
+  const stmt = db.prepare(`DELETE FROM movie_cache WHERE provider = ?`);
+  stmt.run(provider.trim());
 }
