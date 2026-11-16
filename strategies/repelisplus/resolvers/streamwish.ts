@@ -4,7 +4,7 @@
 
 export function unpackPackedJs(packed: string): string {
   const match = packed.match(
-    /}\s*\(\s*['"](.*?)['"]\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*['"](.*?)['"]\.split\(['"]\|['"]\)/s,
+    /}\s*\(\s*['"]([\s\S]*?)['"]\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*['"]([\s\S]*?)['"]\.split\(['"]\|['"]\)/,
   );
   if (!match) return packed;
 

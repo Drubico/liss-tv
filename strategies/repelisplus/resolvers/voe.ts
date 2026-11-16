@@ -19,7 +19,9 @@ export function extractM3u8FromVoe(html: string): string | null {
       if (decoded.includes(".m3u8")) {
         return decoded;
       }
-    } catch (_) {}
+    } catch {
+      // Ignored decoding failure
+    }
   }
 
   // 3. Fallback direct match for m3u8

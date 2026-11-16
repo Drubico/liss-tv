@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import type { GetAllOptions, Movies, MediaItem, StrategyGetAllMovies } from "@/types/movie";
+import type { DriverQuery, Movies, MediaItem, StrategyGetAllMovies } from "@/types/movie";
 import { repelisFetch } from "./client";
 import { parseMovieCard } from "./mappers";
 
@@ -26,21 +26,35 @@ export class GetAll implements StrategyGetAllMovies {
     this.fetchFn = fetchFn;
   }
 
-  async operation(options?: GetAllOptions): Promise<Movies | undefined> {
-    const page = options?.pageNumber || 1;
+  async operation(
+    searchOrQuery?: string | DriverQuery,
+    slugParam?: string,
+    pageParam?: number,
+  ): Promise<Movies | undefined> {
+    const search =
+      typeof searchOrQuery === "string" ? searchOrQuery : searchOrQuery?.search;
+    const slug =
+      typeof searchOrQuery === "object" && searchOrQuery !== null
+        ? searchOrQuery.slug
+        : slugParam;
+    const page =
+      typeof searchOrQuery === "object" && searchOrQuery !== null
+        ? searchOrQuery.pageNumber || 1
+        : pageParam || 1;
+
     let endpoint = "/";
 
-    if (options?.search && options.search.trim()) {
-      const q = encodeURIComponent(options.search.trim());
+    if (search && search.trim()) {
+      const q = encodeURIComponent(search.trim());
       endpoint = `/busqueda?s=${q}`;
       if (page > 1) {
         endpoint += `&page=${page}`;
       }
-    } else if (options?.slug) {
-      const slug = options.slug.toLowerCase();
-      if (slug === "series" || slug === "serie") {
+    } else if (slug) {
+      const cleanSlug = slug.toLowerCase();
+      if (cleanSlug === "series" || cleanSlug === "serie") {
         endpoint = page > 1 ? `/series/page/${page}` : `/series`;
-      } else if (slug === "estrenos") {
+      } else if (cleanSlug === "estrenos") {
         endpoint = page > 1 ? `/peliculas/estrenos/page/${page}` : `/peliculas/estrenos`;
       } else {
         endpoint = page > 1 ? `/peliculas/page/${page}` : `/peliculas`;
@@ -54,14 +68,8 @@ export class GetAll implements StrategyGetAllMovies {
       if (!res.ok) {
         return {
           movies: [],
-          pagination: {
-            page,
-            limit: DEFAULT_PAGE_LIMIT,
-            total: 0,
-            totalPages: 0,
-            hasNext: false,
-            hasPrev: page > 1,
-          },
+          lastPageNumber: 1,
+          hasMore: false,
         };
       }
 
@@ -71,27 +79,15 @@ export class GetAll implements StrategyGetAllMovies {
 
       return {
         movies,
-        pagination: {
-          page,
-          limit: DEFAULT_PAGE_LIMIT,
-          total: movies.length,
-          totalPages: hasNext ? page + 1 : page,
-          hasNext,
-          hasPrev: page > 1,
-        },
+        lastPageNumber: hasNext ? page + 1 : page,
+        hasMore: hasNext,
       };
     } catch (err) {
       console.error("[RepelisPlus] GetAll operation failed:", err);
       return {
         movies: [],
-        pagination: {
-          page,
-          limit: DEFAULT_PAGE_LIMIT,
-          total: 0,
-          totalPages: 0,
-          hasNext: false,
-          hasPrev: page > 1,
-        },
+        lastPageNumber: 1,
+        hasMore: false,
       };
     }
   }

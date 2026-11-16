@@ -25,7 +25,10 @@ export function cleanLinkToPath(link: string | undefined | null): string {
   return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
 }
 
-export function parseMovieCard($: cheerio.CheerioAPI, el: cheerio.Element): MediaItem | null {
+export function parseMovieCard(
+  $: cheerio.CheerioAPI,
+  el: Parameters<cheerio.CheerioAPI>[0],
+): MediaItem | null {
   const linkEl = $(el).is("a") ? $(el) : $(el).find("a").first();
   const rawHref = linkEl.attr("href") || "";
   const link = cleanLinkToPath(rawHref);
@@ -64,11 +67,15 @@ export function parseMovieCard($: cheerio.CheerioAPI, el: cheerio.Element): Medi
     link,
     title,
     image,
-    backgroundImage,
-    year: year || undefined,
-    rating: rating || undefined,
-    duration: duration || undefined,
-    tags: tags.length > 0 ? tags : undefined,
-    caption: caption || undefined,
+    year: year || "",
+    rating: rating || "",
+    type: link.includes("/serie/") ? "serie" : "movie",
+    provider: "repelisplus",
+    context: {
+      backgroundImage,
+      duration: duration || undefined,
+      tags: tags.length > 0 ? tags : undefined,
+      caption: caption || undefined,
+    },
   };
 }

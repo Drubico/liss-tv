@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { RepelisPlusError } from "@/strategies/repelisplus/types";
-import { repelisFetch, buildRepelisUrl } from "@/strategies/repelisplus/client";
+import { buildRepelisUrl } from "@/strategies/repelisplus/client";
 
 describe("RepelisPlus Client", () => {
   it("should build correct absolute URLs for relative paths", () => {

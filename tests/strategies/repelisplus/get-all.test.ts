@@ -31,9 +31,9 @@ describe("RepelisPlus GetAll Operation", () => {
     assert.equal(items[0].title, "Silent Night");
     assert.equal(items[0].link, "/pelicula/silent-night-venganza-silenciosa-zsbl/");
     assert.equal(items[0].image, "https://repelisplus.buzz/cdn/p/v2/w1/sample.webp");
-    assert.equal(items[0].backgroundImage, "https://repelisplus.buzz/cdn/b/v2/w0/backdrop.webp");
+    assert.equal(items[0].context?.backgroundImage, "https://repelisplus.buzz/cdn/b/v2/w0/backdrop.webp");
     assert.equal(items[0].year, "2023");
-    assert.deepEqual(items[0].tags, ["Acción", "Crimen"]);
+    assert.deepEqual(items[0].context?.tags, ["Acción", "Crimen"]);
   });
 
   it("should route search queries to /busqueda?s={query}", async () => {
@@ -53,6 +53,6 @@ describe("RepelisPlus GetAll Operation", () => {
     const getAll = new GetAll(mockFetch as unknown as typeof fetch);
     const result = await getAll.operation({ search: "nonexistent123" });
     assert.deepEqual(result?.movies, []);
-    assert.equal(result?.pagination.total, 0);
+    assert.equal(result?.hasMore, false);
   });
 });
