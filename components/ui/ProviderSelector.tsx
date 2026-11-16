@@ -24,6 +24,7 @@ export function ProviderSelector() {
     { id: "gnula", name: "Gnula HD" },
     { id: "solo-latino", name: "Solo Latino" },
     { id: "serieslan", name: "SeriesLan" },
+    { id: "repelisplus", name: "RepelisPlus" },
   ]);
 
   useEffect(() => {
