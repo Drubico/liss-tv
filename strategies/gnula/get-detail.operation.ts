@@ -167,7 +167,7 @@ function extractSeasons(
 
 export class GetDetail implements StrategyGetMovieDetails {
   async operation(link: string): Promise<Omit<StoredMovie, "link" | "updatedAt"> | undefined> {
-    const cached = get(link);
+    const cached = get("gnula", link);
     const isSerie = link.includes("serie");
 
     if (
@@ -223,6 +223,10 @@ export class GetDetail implements StrategyGetMovieDetails {
         .text()
         .trim();
 
+      if (!title || title.trim() === "") {
+        return undefined;
+      }
+
       const seasons = extractSeasons($, image, gnulaContext);
 
       const movieData: Omit<StoredMovie, "link" | "updatedAt"> = {
@@ -239,7 +243,7 @@ export class GetDetail implements StrategyGetMovieDetails {
         context: Object.keys(gnulaContext).length > 0 ? { ...gnulaContext, provider: "gnula" } : { provider: "gnula" },
       };
 
-      upsert(link, movieData);
+      upsert("gnula", link, movieData);
       return movieData;
     } catch (error) {
       console.error("[Gnula] GetDetail operation failed:", error);

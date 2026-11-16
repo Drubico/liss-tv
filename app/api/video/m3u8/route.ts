@@ -6,7 +6,7 @@ import {
   saveManifest,
   getManifestAppUrl,
 } from "@/services/minio.service";
-import { upsert } from "@/services/movie.store";
+import { getAny, upsert } from "@/services/movie.store";
 import got from "got";
 import { NextRequest, NextResponse } from "next/server";
 import { Readable } from "node:stream";
@@ -21,7 +21,9 @@ export async function GET(req: NextRequest) {
       const storedManifest = await getManifest(pathParam);
       if (storedManifest) {
         try {
-          upsert(pathParam, { movieUrl: getManifestAppUrl(pathParam) });
+          const existing = getAny(pathParam);
+          const provider = existing?.provider || "sololatino";
+          upsert(provider, pathParam, { movieUrl: getManifestAppUrl(pathParam) });
         } catch (_) {}
 
         return new NextResponse(storedManifest, {

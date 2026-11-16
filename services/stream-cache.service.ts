@@ -1,4 +1,4 @@
-import { get, remove, upsert } from "@/services/movie.store";
+import { get, getAny, remove, upsert } from "@/services/movie.store";
 import {
   hasManifest,
   getManifestPublicUrl,
@@ -7,14 +7,16 @@ import {
   type SaveManifestOptions,
 } from "@/services/minio.service";
 import type { Url } from "@/types/movie";
+import { inferProviderFromLink } from "@/utils/utils";
 
 /**
  * Resolves a cached stream URL from either MinIO bucket or persistent store.
  * Returns null if no valid, non-expired stream is cached.
  */
-export async function resolveCachedStream(path: string): Promise<Url | null> {
+export async function resolveCachedStream(path: string, providerId?: string): Promise<Url | null> {
   const cleanPath = normalizeMoviePath(path);
   if (!cleanPath) return null;
+  const targetProvider = providerId || inferProviderFromLink(path) || "sololatino";
 
   // 1. Check if the manifest exists in MinIO bucket
   try {
@@ -22,9 +24,9 @@ export async function resolveCachedStream(path: string): Promise<Url | null> {
     if (inMinio) {
       const appUrl = getManifestPublicUrl(cleanPath);
       try {
-        upsert(path, { movieUrl: appUrl });
+        upsert(targetProvider, path, { movieUrl: appUrl });
         if (cleanPath !== path) {
-          upsert(cleanPath, { movieUrl: appUrl });
+          upsert(targetProvider, cleanPath, { movieUrl: appUrl });
         }
       } catch {
         // Ignore store upsert failure
@@ -40,14 +42,18 @@ export async function resolveCachedStream(path: string): Promise<Url | null> {
   }
 
   // 2. Check SQLite persistent store for clean, non-expired manifest URLs
-  const cached = get(path) || (cleanPath !== path ? get(cleanPath) : undefined);
+  const cached = providerId
+    ? get(providerId, path) || (cleanPath !== path ? get(providerId, cleanPath) : undefined)
+    : getAny(path) || (cleanPath !== path ? getAny(cleanPath) : undefined);
+
   if (cached?.movieUrl) {
     const movieUrl = cached.movieUrl;
+    const cacheProvider = cached.provider || targetProvider;
 
     // Purge corrupted legacy paths
     if (movieUrl.includes("path=https") || movieUrl.includes("sololatino.net")) {
-      remove(path);
-      if (cleanPath !== path) remove(cleanPath);
+      remove(cacheProvider, path);
+      if (cleanPath !== path) remove(cacheProvider, cleanPath);
       return null;
     }
 
@@ -70,8 +76,8 @@ export async function resolveCachedStream(path: string): Promise<Url | null> {
       movieUrl.includes("&url=") ||
       movieUrl.includes("?url=")
     ) {
-      remove(path);
-      if (cleanPath !== path) remove(cleanPath);
+      remove(cacheProvider, path);
+      if (cleanPath !== path) remove(cacheProvider, cleanPath);
       return null;
     }
 
@@ -97,17 +103,19 @@ export async function persistUpstreamManifest(
   path: string,
   rawM3u8Url: string,
   options?: PersistManifestOptions,
+  providerId?: string,
 ): Promise<string | null> {
   const cleanPath = normalizeMoviePath(path);
+  const targetProvider = providerId || inferProviderFromLink(path) || "sololatino";
 
   try {
     console.info(`[StreamCache] Uploading M3U8 to MinIO bucket for: ${cleanPath}...`);
     const minioAppUrl = await saveManifestFromUpstream(cleanPath, rawM3u8Url, options);
 
     try {
-      upsert(path, { movieUrl: minioAppUrl });
+      upsert(targetProvider, path, { movieUrl: minioAppUrl });
       if (cleanPath !== path) {
-        upsert(cleanPath, { movieUrl: minioAppUrl });
+        upsert(targetProvider, cleanPath, { movieUrl: minioAppUrl });
       }
     } catch {
       // Ignore store upsert failure
@@ -130,9 +138,9 @@ export async function persistUpstreamManifest(
     const fallbackUrl = `/api/video/m3u8?path=${encodeURIComponent(cleanPath)}&url=${encodeURIComponent(rawM3u8Url)}`;
 
     try {
-      upsert(path, { movieUrl: fallbackUrl });
+      upsert(targetProvider, path, { movieUrl: fallbackUrl });
       if (cleanPath !== path) {
-        upsert(cleanPath, { movieUrl: fallbackUrl });
+        upsert(targetProvider, cleanPath, { movieUrl: fallbackUrl });
       }
     } catch {
       // Ignore store upsert failure
@@ -145,12 +153,13 @@ export async function persistUpstreamManifest(
 /**
  * Persists any resolved stream URL to the local store for quick retrieval.
  */
-export function persistStreamUrl(path: string, streamUrl: string): void {
+export function persistStreamUrl(path: string, streamUrl: string, providerId?: string): void {
   const cleanPath = normalizeMoviePath(path);
+  const targetProvider = providerId || inferProviderFromLink(path) || "sololatino";
   try {
-    upsert(path, { movieUrl: streamUrl });
+    upsert(targetProvider, path, { movieUrl: streamUrl });
     if (cleanPath !== path) {
-      upsert(cleanPath, { movieUrl: streamUrl });
+      upsert(targetProvider, cleanPath, { movieUrl: streamUrl });
     }
   } catch (err) {
     console.warn(`[StreamCache] Failed to persist stream url for ${path}:`, err);
