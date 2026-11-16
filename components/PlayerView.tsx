@@ -124,12 +124,8 @@ export function PlayerView() {
         }
       } catch (error) {
         if (!isCancelled) {
-          console.error(error);
-          setErrorMessage(
-            error instanceof Error
-              ? error.message
-              : "No se pudo cargar el video para este contenido.",
-          );
+          console.error("[PlayerView] Error al cargar la URL del video:", error);
+          setErrorMessage("No se pudo cargar el video.");
         }
       } finally {
         if (!isCancelled) {
@@ -187,7 +183,7 @@ export function PlayerView() {
     return (
       <div className="flex flex-col items-center justify-center h-screen text-white bg-black gap-4 px-4 text-center">
         <p className="text-lg font-semibold">
-          No se pudo obtener la URL del video.
+          No se pudo cargar el video.
         </p>
         <button
           onClick={() => router.back()}
