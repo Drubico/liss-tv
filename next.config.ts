@@ -16,10 +16,10 @@ const nextConfig: NextConfig = {
     localPatterns: [
       {
         pathname: "/**",
-        search: "?*",
+        search: "",
       },
       {
-        pathname: "/api/image",
+        pathname: "/**",
         search: "?*",
       },
     ],
