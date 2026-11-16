@@ -8,3 +8,5 @@
 - Pre-flight: all interfaces verified and consistent with `AGENTS.md`.
 
 - Task 1: complete — commit pending
+
+- Task 2: complete — commit pending
