@@ -57,18 +57,98 @@ function migrateJsonIfPresent(db: DatabaseType): void {
   }
 }
 
+export function ensureSchemaAndMigrate(db: DatabaseType): void {
+  const tableRow = db
+    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='movie_cache'")
+    .get() as { name: string } | undefined;
+
+  if (!tableRow) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS movie_cache (
+        provider TEXT NOT NULL,
+        key TEXT NOT NULL,
+        data TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (provider, key)
+      );
+      CREATE INDEX IF NOT EXISTS idx_movie_cache_provider ON movie_cache (provider);
+    `);
+    return;
+  }
+
+  const columns = db.pragma("table_info(movie_cache)") as { name: string; pk: number }[];
+  const hasProviderPk = columns.some((c) => c.name === "provider" && c.pk > 0);
+
+  if (!hasProviderPk) {
+    db.exec(`
+      CREATE TABLE movie_cache_v2 (
+        provider TEXT NOT NULL,
+        key TEXT NOT NULL,
+        data TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (provider, key)
+      );
+    `);
+
+    const oldRows = db.prepare("SELECT key, data, updated_at FROM movie_cache").all() as {
+      key: string;
+      data: string;
+      updated_at: string;
+    }[];
+
+    const insert = db.prepare(`
+      INSERT OR REPLACE INTO movie_cache_v2 (provider, key, data, updated_at)
+      VALUES (?, ?, ?, ?)
+    `);
+
+    const migration = db.transaction(() => {
+      for (const row of oldRows) {
+        try {
+          const parsed = JSON.parse(row.data) as Record<string, unknown>;
+          if (!parsed || typeof parsed !== "object") continue;
+
+          // Drop corrupt/empty movie details
+          if ("title" in parsed && typeof parsed.title === "string" && parsed.title.trim() === "") {
+            continue;
+          }
+
+          let provider = "sololatino";
+          let key = row.key;
+
+          if (typeof parsed.provider === "string" && parsed.provider.trim() !== "") {
+            provider = parsed.provider.trim();
+          } else if (key.startsWith("gnula:")) {
+            provider = "gnula";
+            key = key.replace(/^gnula:/, "");
+          } else if (key.startsWith("sololatino:")) {
+            provider = "sololatino";
+            key = key.replace(/^sololatino:/, "");
+          } else if (key.startsWith("serieslan:")) {
+            provider = "serieslan";
+            key = key.replace(/^serieslan:/, "");
+          }
+
+          insert.run(provider, key, row.data, row.updated_at);
+        } catch {
+          // Skip unparseable rows
+        }
+      }
+
+      db.exec("DROP TABLE movie_cache;");
+      db.exec("ALTER TABLE movie_cache_v2 RENAME TO movie_cache;");
+      db.exec("CREATE INDEX IF NOT EXISTS idx_movie_cache_provider ON movie_cache (provider);");
+    });
+
+    migration();
+  }
+}
+
 function getDatabase(): DatabaseType {
   if (!globalThis.__movieDb) {
     fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
     const db = new Database(DB_PATH);
     db.pragma("journal_mode = WAL");
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS movie_cache (
-        key TEXT PRIMARY KEY,
-        data TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      );
-    `);
+    ensureSchemaAndMigrate(db);
     migrateJsonIfPresent(db);
     globalThis.__movieDb = db;
   }
