@@ -2,6 +2,8 @@ import * as cheerio from "cheerio";
 import type { Episode, Season, StoredMovie, StrategyGetMovieDetails } from "@/types/movie";
 import { megadedeFetch } from "./client";
 
+const MAX_TAGS = 4;
+
 function isValidImageUrl(url?: string): boolean {
   if (!url || typeof url !== "string") return false;
   const clean = url.trim().toLowerCase();
@@ -253,7 +255,7 @@ export function parseMegadedeDetail(
     rating,
     duration: duration || undefined,
     caption: caption || undefined,
-    tags: tags.length > 0 ? tags : undefined,
+    tags: tags.length > 0 ? tags.slice(0, MAX_TAGS) : undefined,
     type: isSerie ? "serie" : "movie",
     provider: "megadede",
     movieUrl,

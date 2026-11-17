@@ -176,3 +176,28 @@ test("GetDetail operation returns undefined on 404", async (t) => {
   const res = await getDetail.operation("/pelicula/not-existing");
   assert.strictEqual(res, undefined);
 });
+
+test("parseMegadedeDetail caps tags to a maximum of 4", () => {
+  const html = `
+    <html>
+      <head><meta property="og:title" content="Test Many Tags" /></head>
+      <body>
+        <div class="movie-info">
+          <h1 class="title">Test Many Tags</h1>
+          <div class="genres">
+            <a href="/genero/1">Acción</a>
+            <a href="/genero/2">Comedia</a>
+            <a href="/genero/3">Aventura</a>
+            <a href="/genero/4">Drama</a>
+            <a href="/genero/5">Terror</a>
+            <a href="/genero/6">Ciencia Ficción</a>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+  const detail = parseMegadedeDetail(html, "/pelicula/test-many-tags");
+  assert(detail !== undefined);
+  assert.strictEqual(detail.tags?.length, 4);
+  assert.deepStrictEqual(detail.tags, ["Acción", "Comedia", "Aventura", "Drama"]);
+});
