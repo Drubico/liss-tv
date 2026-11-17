@@ -241,7 +241,7 @@ export class GetDetail implements StrategyGetMovieDetails {
 
     try {
       const candidates = getDetailCandidatePaths(link);
-      let response: Response | undefined;
+      let response: Awaited<ReturnType<typeof this.fetchFn>> | undefined;
       let matchedEndpoint = "";
 
       for (const ep of candidates) {
