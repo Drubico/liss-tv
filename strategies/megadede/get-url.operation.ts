@@ -120,15 +120,23 @@ export class GetUrl implements StrategyGetUrl {
       return path;
     }
 
-    // Check if it's a series episode coordinate: either in path (#sX-eY) or in options
+    // Check if it's a series episode coordinate: in options, detailContext, params, or path (#sX-eY)
     const hashMatch = path.match(/#s(\d+)-e(\d+)/i);
-    const season = options?.season || hashMatch?.[1];
-    const episode = options?.episode || hashMatch?.[2];
+    const season =
+      options?.season ??
+      options?.detailContext?.season ??
+      options?.params?.season ??
+      hashMatch?.[1];
+    const episode =
+      options?.episode ??
+      options?.detailContext?.episode ??
+      options?.params?.episode ??
+      hashMatch?.[2];
 
     if (season !== undefined && episode !== undefined) {
       const slug =
-        (options?.params?.slug as string | undefined) ||
-        (options?.detailContext?.slug as string | undefined) ||
+        (options?.params?.slug as string | undefined) ??
+        (options?.detailContext?.slug as string | undefined) ??
         path.replace(/^\/?(?:serie|pelicula)\//, "").replace(/#.*$/, "").replace(/\/+$/, "");
 
       const episodeApiUrl = `/api/episodio/serie/${encodeURIComponent(slug)}/${season}/${episode}`;

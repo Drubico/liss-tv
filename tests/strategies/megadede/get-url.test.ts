@@ -136,4 +136,15 @@ test("GetUrl resolves series episode via /api/episodio/", async (t) => {
 
   assert(result.url?.includes("/api/video/m3u8?url="));
   assert(result.url?.includes("&referer="));
+
+  // Test resolving via detailContext without hash in path
+  const resultViaContext = await getUrl.operation("/serie/the-afterparty/player", {
+    detailContext: {
+      season: 1,
+      episode: 1,
+      slug: "the-afterparty",
+      provider: "megadede",
+    },
+  });
+  assert(resultViaContext.url?.includes("/api/video/m3u8?url="));
 });

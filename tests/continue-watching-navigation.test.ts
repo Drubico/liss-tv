@@ -92,21 +92,21 @@ describe("Continue Watching Navigation & Provider Inference", () => {
       );
     });
 
-    it("should map Megadede series episode with hash to player route with query params", () => {
+    it("should map Megadede series episode with hash to clean player route", () => {
       assert.equal(
         getPlayerHref("/serie/drake-y-josh#s3-e7"),
-        "/serie/drake-y-josh/player?season=3&episode=7"
+        "/serie/drake-y-josh/player"
       );
     });
 
     it("should clean malformed player URLs that appended /player to the hash", () => {
       assert.equal(
         getPlayerHref("/serie/drake-y-josh#s3-e7/player"),
-        "/serie/drake-y-josh/player?season=3&episode=7"
+        "/serie/drake-y-josh/player"
       );
       assert.equal(
         getPlayerHref("http://localhost:3000/serie/drake-y-josh#s3-e7/player"),
-        "/serie/drake-y-josh/player?season=3&episode=7"
+        "/serie/drake-y-josh/player"
       );
     });
 
