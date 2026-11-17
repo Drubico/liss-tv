@@ -157,26 +157,74 @@ export async function GET(req: NextRequest) {
       segmentHeaders["range"] = rangeHeader;
     }
 
-    // Timeout only applies to initial connection & receiving HTTP headers (15s)
-    // so slow large segment downloads are not aborted midway.
-    const controller = new AbortController();
-    const connectTimeoutId = setTimeout(() => {
-      controller.abort(new Error("Upstream connection timeout"));
-    }, 15000);
+    const MAX_RETRIES = 2;
+    let upstreamRes: Response | null = null;
+    let lastError: unknown = null;
 
-    const onReqAbort = () => controller.abort();
-    req.signal?.addEventListener("abort", onReqAbort);
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      if (req.signal?.aborted) {
+        return new NextResponse(null, { status: 499 });
+      }
 
-    let upstreamRes: Response;
-    try {
-      upstreamRes = await fetch(url, {
-        headers: segmentHeaders,
-        signal: controller.signal,
-        dispatcher: segmentAgent,
-      } as RequestInit & { dispatcher?: Agent });
-    } finally {
-      clearTimeout(connectTimeoutId);
-      req.signal?.removeEventListener("abort", onReqAbort);
+      if (attempt > 0) {
+        await new Promise((r) => setTimeout(r, attempt * 150));
+      }
+
+      // Timeout only applies to initial connection & receiving HTTP headers (15s)
+      // so slow large segment downloads are not aborted midway.
+      const controller = new AbortController();
+      const connectTimeoutId = setTimeout(() => {
+        controller.abort(new Error("Upstream connection timeout"));
+      }, 15000);
+
+      const onReqAbort = () => controller.abort();
+      req.signal?.addEventListener("abort", onReqAbort);
+
+      try {
+        const res = await fetch(url, {
+          headers: segmentHeaders,
+          signal: controller.signal,
+          dispatcher: segmentAgent,
+        } as RequestInit & { dispatcher?: Agent });
+
+        if (res.ok || res.status === 206) {
+          upstreamRes = res;
+          break;
+        }
+
+        // Retry on transient upstream server errors (5xx, 429, 408)
+        if (res.status >= 500 || res.status === 429 || res.status === 408) {
+          console.warn(
+            `[m3u8 proxy] Transient upstream error ${res.status} on attempt ${attempt + 1} for ${url}`,
+          );
+          lastError = new Error(`Upstream returned ${res.status}`);
+          continue;
+        }
+
+        // For non-transient errors (e.g. 404, 403), return directly without retry
+        upstreamRes = res;
+        break;
+      } catch (err: unknown) {
+        if (req.signal?.aborted) {
+          return new NextResponse(null, { status: 499 });
+        }
+        lastError = err;
+        console.warn(
+          `[m3u8 proxy] Network error on attempt ${attempt + 1} for ${url}:`,
+          err instanceof Error ? err.message : String(err),
+        );
+      } finally {
+        clearTimeout(connectTimeoutId);
+        req.signal?.removeEventListener("abort", onReqAbort);
+      }
+    }
+
+    if (!upstreamRes) {
+      const message = lastError instanceof Error ? lastError.message : String(lastError);
+      return NextResponse.json(
+        { error: "Failed to fetch upstream segment after retries", details: message },
+        { status: 502 },
+      );
     }
 
     if (!upstreamRes.ok && upstreamRes.status !== 206) {
