@@ -20,6 +20,9 @@ export class DriverRegistry {
 
       const serieslanContext = MovieContextFactory.driver("serieslan");
       this.register(new CachedDriverDecorator(serieslanContext));
+
+      const megadedeContext = MovieContextFactory.driver("megadede");
+      this.register(new CachedDriverDecorator(megadedeContext));
     } catch (err) {
       console.warn("[DriverRegistry] Warning initializing built-in drivers:", err);
     }
