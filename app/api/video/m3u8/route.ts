@@ -55,6 +55,9 @@ export async function GET(req: NextRequest) {
   }
 
   const isManifestUrl = url.includes(".m3u8");
+  const refererParam = req.nextUrl.searchParams.get("referer");
+  const directSegmentsParam =
+    req.nextUrl.searchParams.get("directSegments") === "true";
 
   try {
     // ------------------------------------------------------------------
@@ -68,7 +71,10 @@ export async function GET(req: NextRequest) {
         : { agent: undefined };
 
       const manifestRes = await got(url, {
-        headers: { "user-agent": BROWSER_UA },
+        headers: {
+          "user-agent": BROWSER_UA,
+          ...(refererParam ? { referer: refererParam } : {}),
+        },
         throwHttpErrors: false,
         ...(agent ? { agent: { https: agent, http: agent } } : {}),
       });
@@ -83,7 +89,11 @@ export async function GET(req: NextRequest) {
       const body = manifestRes.body;
       const origin = process.env.APP_URL;
       const appOrigin = origin || (req.nextUrl.origin.includes("0.0.0.0") ? "" : req.nextUrl.origin);
-      const rewrittenBody = rewriteManifest(body, url, appOrigin);
+      const rewrittenBody = rewriteManifest(body, url, {
+        baseOrigin: appOrigin,
+        directSegments: directSegmentsParam,
+        referer: refererParam || undefined,
+      });
 
       // Si viene el pathParam, guardar la versión reescrita en MinIO en background y actualizar SQLite
       if (pathParam) {
@@ -116,6 +126,7 @@ export async function GET(req: NextRequest) {
     const nodeStream = got.stream(url, {
       headers: {
         "user-agent": BROWSER_UA,
+        ...(refererParam ? { referer: refererParam } : {}),
         ...(req.headers.get("range")
           ? { range: req.headers.get("range")! }
           : {}),
@@ -144,7 +155,7 @@ export async function GET(req: NextRequest) {
     headers.set("Content-Type", "video/mp2t");
     headers.set("Access-Control-Allow-Origin", "*");
     headers.set("Access-Control-Allow-Headers", "Range");
-    headers.set("Cache-Control", "no-store");
+    headers.set("Cache-Control", "public, max-age=86400, immutable");
     headers.set(
       "Access-Control-Expose-Headers",
       "Content-Range, Content-Length, Accept-Ranges",
