@@ -9,7 +9,6 @@ import {
 import { getAny, upsert } from "@/services/movie.store";
 import got from "got";
 import { NextRequest, NextResponse } from "next/server";
-import { Readable } from "node:stream";
 
 export async function GET(req: NextRequest) {
   const url = req.nextUrl.searchParams.get("url");
@@ -134,67 +133,69 @@ export async function GET(req: NextRequest) {
     }
 
     // ------------------------------------------------------------------
-    // SEGMENT path — stream directly, no proxy.
+    // SEGMENT path — stream directly with native fetch, no proxy.
+    // Native fetch uses Web ReadableStreams natively without got's
+    // strictContentLength mismatch errors when clients abort or seek.
     // ------------------------------------------------------------------
-    const nodeStream = got.stream(url, {
-      headers: {
-        "user-agent": BROWSER_UA,
-        ...(effectiveReferer ? { referer: effectiveReferer } : {}),
-        ...(req.headers.get("range")
-          ? { range: req.headers.get("range")! }
-          : {}),
-      },
-      throwHttpErrors: false,
-    });
+    const segmentHeaders: Record<string, string> = {
+      "user-agent": BROWSER_UA,
+      ...(effectiveReferer ? { referer: effectiveReferer } : {}),
+    };
 
-    if (req.signal) {
-      req.signal.addEventListener("abort", () => {
-        nodeStream.destroy();
-      });
+    const rangeHeader = req.headers.get("range");
+    if (rangeHeader) {
+      segmentHeaders["range"] = rangeHeader;
     }
 
-    const upstream = await new Promise<{
-      statusCode: number;
-      headers: Record<string, string>;
-    }>((resolve, reject) => {
-      nodeStream.once("response", resolve);
-      nodeStream.once("error", reject);
+    const abortSignals: AbortSignal[] = [AbortSignal.timeout(25000)];
+    if (req.signal) {
+      abortSignals.push(req.signal);
+    }
+    const signal = AbortSignal.any(abortSignals);
+
+    const upstreamRes = await fetch(url, {
+      headers: segmentHeaders,
+      signal,
     });
 
-    if (upstream.statusCode >= 400) {
-      nodeStream.destroy();
-      return NextResponse.json(
-        { error: "Upstream segment error", status: upstream.statusCode },
-        { status: 502 },
+    if (!upstreamRes.ok && upstreamRes.status !== 206) {
+      console.warn(
+        `[m3u8 proxy] Upstream segment returned ${upstreamRes.status} for ${url}`,
       );
+      return new NextResponse(null, { status: upstreamRes.status });
     }
 
     // Force video MIME — some upstreams disguise segments
     const headers = new Headers();
-    headers.set("Content-Type", "video/mp2t");
+    headers.set(
+      "Content-Type",
+      upstreamRes.headers.get("content-type") || "video/mp2t",
+    );
     headers.set("Access-Control-Allow-Origin", "*");
     headers.set("Access-Control-Allow-Headers", "Range");
-    headers.set("Cache-Control", "no-store");
+    headers.set("Cache-Control", "public, max-age=3600");
     headers.set(
       "Access-Control-Expose-Headers",
       "Content-Range, Content-Length, Accept-Ranges",
     );
 
-    const contentLength = upstream.headers["content-length"];
-    const contentRange = upstream.headers["content-range"];
-    const acceptRanges = upstream.headers["accept-ranges"];
+    const contentLength = upstreamRes.headers.get("content-length");
+    const contentRange = upstreamRes.headers.get("content-range");
+    const acceptRanges = upstreamRes.headers.get("accept-ranges");
     if (contentLength) headers.set("Content-Length", contentLength);
     if (contentRange) headers.set("Content-Range", contentRange);
     if (acceptRanges) headers.set("Accept-Ranges", acceptRanges);
 
-    const webStream = Readable.toWeb(nodeStream);
-
-    return new NextResponse(webStream as ReadableStream, {
-      status: upstream.statusCode,
+    return new NextResponse(upstreamRes.body, {
+      status: upstreamRes.status,
       headers,
     });
   } catch (err: unknown) {
-    if (req.signal?.aborted) {
+    if (
+      req.signal?.aborted ||
+      (err instanceof Error &&
+        (err.name === "AbortError" || err.name === "TimeoutError"))
+    ) {
       return new NextResponse(null, { status: 499 });
     }
     const message = err instanceof Error ? err.message : String(err);
