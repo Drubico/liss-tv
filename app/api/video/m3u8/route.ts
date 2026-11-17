@@ -259,15 +259,34 @@ export async function GET(req: NextRequest) {
 
     const status = upstreamRes.status === 206 && !contentRange ? 200 : upstreamRes.status;
 
-    // Wrap body stream safely via native TransformStream so client cancellations
-    // or seeks close cleanly without triggering Next.js unhandled pipe crashes.
+    // Wrap body stream with on-demand pull backpressure so chunk transmission
+    // matches HTTP/2 client read rate without premature socket closures.
     const upstreamBody = upstreamRes.body;
     let safeStream: ReadableStream | null = null;
 
     if (upstreamBody) {
-      const transform = new TransformStream();
-      upstreamBody.pipeTo(transform.writable).catch(() => {});
-      safeStream = transform.readable;
+      const reader = upstreamBody.getReader();
+      safeStream = new ReadableStream({
+        async pull(ctrl) {
+          try {
+            const { done, value } = await reader.read();
+            if (done) {
+              try {
+                ctrl.close();
+              } catch {}
+            } else {
+              ctrl.enqueue(value);
+            }
+          } catch {
+            try {
+              ctrl.close();
+            } catch {}
+          }
+        },
+        cancel(reason) {
+          reader.cancel(reason).catch(() => {});
+        },
+      });
     }
 
     return new NextResponse(safeStream, {
