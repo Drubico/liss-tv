@@ -2,6 +2,21 @@ import * as cheerio from "cheerio";
 import type { Episode, Season, StoredMovie, StrategyGetMovieDetails } from "@/types/movie";
 import { megadedeFetch } from "./client";
 
+function isValidImageUrl(url?: string): boolean {
+  if (!url || typeof url !== "string") return false;
+  const clean = url.trim().toLowerCase();
+  if (
+    clean === "" ||
+    clean.endsWith(".svg") ||
+    clean.includes("logo") ||
+    clean.includes("torovid") ||
+    clean.includes("icon")
+  ) {
+    return false;
+  }
+  return true;
+}
+
 export function parseMegadedeDetail(
   html: string,
   link: string
@@ -25,15 +40,66 @@ export function parseMegadedeDetail(
 
   const cleanTitle = title.replace(/\s*\(\d{4}\)$/, "").trim();
 
-  const poster = $(".poster img, figure img").attr("src") || "";
-  const ogImage = $("meta[property='og:image']").attr("content") || "";
-  const backdrop = $(".backdrop img, .cover img").attr("src") || "";
+  // 1. Poster image
+  let poster =
+    $(".movie-poster img, .item-cover img, .poster img")
+      .filter((_, el) => isValidImageUrl($(el).attr("src") || $(el).attr("data-src")))
+      .first()
+      .attr("src") ||
+    $(".movie-poster img, .item-cover img, .poster img")
+      .filter((_, el) => isValidImageUrl($(el).attr("data-src")))
+      .first()
+      .attr("data-src") ||
+    "";
 
-  let image = poster || ogImage || "";
-  if (image.startsWith("//")) image = `https:${image}`;
+  if (!poster) {
+    const ogImage = $("meta[property='og:image']").attr("content") || "";
+    if (isValidImageUrl(ogImage)) {
+      poster = ogImage;
+    }
+  }
 
-  let backgroundImage = backdrop || ogImage || image;
-  if (backgroundImage.startsWith("//")) backgroundImage = `https:${backgroundImage}`;
+  if (!poster) {
+    $('script[type="application/ld+json"]').each((_, el) => {
+      try {
+        const text = $(el).html();
+        if (text) {
+          const json = JSON.parse(text) as { image?: string };
+          if (json.image && typeof json.image === "string" && isValidImageUrl(json.image)) {
+            poster = json.image;
+          }
+        }
+      } catch {}
+    });
+  }
+
+  if (poster.startsWith("//")) poster = `https:${poster}`;
+
+  // 2. Backdrop image
+  let backdrop =
+    $(".backdrop img, .cover img, .movie-backdrop img")
+      .filter((_, el) => isValidImageUrl($(el).attr("src") || $(el).attr("data-src")))
+      .first()
+      .attr("src") || "";
+
+  if (backdrop.startsWith("//")) backdrop = `https:${backdrop}`;
+
+  let backgroundImage = backdrop;
+  if (!backgroundImage) {
+    const ogImage = $("meta[property='og:image']").attr("content") || "";
+    if (isValidImageUrl(ogImage) && ogImage !== poster) {
+      backgroundImage = ogImage.startsWith("//") ? `https:${ogImage}` : ogImage;
+    }
+  }
+
+  if (!backgroundImage && poster) {
+    backgroundImage = poster.replace(/\/w\d+\//, "/original/");
+  }
+
+  const image = poster || backgroundImage;
+  if (!backgroundImage) {
+    backgroundImage = image;
+  }
 
   let year =
     $("a[href*='/year/'], .year, .release-year, .date").first().text().replace(/[^0-9]/g, "").trim() ||

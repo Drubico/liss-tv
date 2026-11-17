@@ -38,6 +38,8 @@ describe("Continue Watching Navigation & Provider Inference", () => {
       assert.equal(inferProviderFromLink("https://megadede.mobi/pelicula/test"), "megadede");
       assert.equal(inferProviderFromLink("/vidurl/tt12345/"), "megadede");
       assert.equal(inferProviderFromLink("/serie/test", { provider: "megadede" }), "megadede");
+      assert.equal(inferProviderFromLink("/pelicula/la-desaparicion-de-haruhi-suzu-3F2cYW"), "megadede");
+      assert.equal(inferProviderFromLink("/serie/clase-letal-YT2vW1"), "megadede");
     });
 
     it("should return undefined for generic links without context", () => {

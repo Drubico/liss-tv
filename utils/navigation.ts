@@ -29,7 +29,8 @@ export function inferProviderFromLink(
   }
   if (
     clean.includes("megadede") ||
-    clean.includes("/vidurl/")
+    clean.includes("/vidurl/") ||
+    /-[a-z0-9]{6}(?:#.*)?$/i.test(clean)
   ) {
     return "megadede";
   }
