@@ -55,6 +55,7 @@ export function ProviderSelector({
     buildProviderOption({ id: "gnula", name: "Gnula HD" }),
     buildProviderOption({ id: "solo-latino", name: "Solo Latino" }),
     buildProviderOption({ id: "serieslan", name: "SeriesLan" }),
+    buildProviderOption({ id: "megadede", name: "Megadede" }),
   ]);
 
   useEffect(() => {
@@ -73,6 +74,7 @@ export function ProviderSelector({
                   buildProviderOption({ id: "gnula", name: "Gnula HD" }),
                   buildProviderOption({ id: "solo-latino", name: "Solo Latino" }),
                   buildProviderOption({ id: "serieslan", name: "SeriesLan" }),
+                  buildProviderOption({ id: "megadede", name: "Megadede" }),
                 ];
           setProviders(mapped);
 

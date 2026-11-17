@@ -27,6 +27,12 @@ export function inferProviderFromLink(
   ) {
     return "gnula";
   }
+  if (
+    clean.includes("megadede") ||
+    clean.includes("/vidurl/")
+  ) {
+    return "megadede";
+  }
   return undefined;
 }
 

@@ -34,6 +34,12 @@ describe("Continue Watching Navigation & Provider Inference", () => {
       );
     });
 
+    it("should infer 'megadede' for links or context referencing Megadede", () => {
+      assert.equal(inferProviderFromLink("https://megadede.mobi/pelicula/test"), "megadede");
+      assert.equal(inferProviderFromLink("/vidurl/tt12345/"), "megadede");
+      assert.equal(inferProviderFromLink("/serie/test", { provider: "megadede" }), "megadede");
+    });
+
     it("should return undefined for generic links without context", () => {
       assert.equal(inferProviderFromLink("/pelicula/avatar-el-camino-del-agua"), undefined);
     });
