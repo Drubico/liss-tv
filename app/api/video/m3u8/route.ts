@@ -15,7 +15,7 @@ import { Agent } from "undici";
 const segmentAgent = new Agent({
   keepAliveTimeout: 30000,
   keepAliveMaxTimeout: 60000,
-  connections: 100,
+  connections: 150,
   pipelining: 1,
   connect: {
     rejectUnauthorized: false,
