@@ -29,9 +29,12 @@ function buildCacheKey(search?: string, slug?: string, pageNumber = 1): string {
   return `gnula:${slug}:page:${pageNumber}`;
 }
 
-function extractSlug(urlOrHref: string): string {
-  const match = urlOrHref.match(/https?:\/\/[^/]+(?:\/ver)?\/([^/?#]+)/);
-  return match ? match[1] : urlOrHref.replace(/^.*\/|\/$/g, "");
+export function extractSlug(urlOrHref: string): string {
+  const clean = urlOrHref
+    .replace(/[?#].*$/, "")
+    .replace(/^https?:\/\/[^/]+/, "");
+  const segments = clean.split("/").filter(Boolean);
+  return segments[segments.length - 1] || "";
 }
 
 function parsePagination(
@@ -70,11 +73,14 @@ function mapSearchItemToMovie(item: GnulaSearchItem): Movie | null {
     typeLower.includes("dorama");
 
   return {
+    id: itemSlug,
     link: `/${isSerie ? "serie" : "pelicula"}/${itemSlug}`,
     image: item.img || "",
     rating: "",
     title: item.title,
     year: item.year || "",
+    type: isSerie ? "serie" : "movie",
+    provider: "gnula",
   };
 }
 
@@ -107,11 +113,14 @@ function mapHtmlCardToMovie(
   const year = yearMatch ? yearMatch[0] : yearRaw.slice(0, 4);
 
   return {
+    id: itemSlug,
     link: `/${isSerie ? "serie" : "pelicula"}/${itemSlug}`,
     image,
     rating,
     title,
     year,
+    type: isSerie ? "serie" : "movie",
+    provider: "gnula",
   };
 }
 

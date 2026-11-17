@@ -16,7 +16,7 @@ function resolveDetailPath(link: string): string {
   }
   const clean = link.replace(/^\/+/, "");
   if (clean.startsWith("ver/")) {
-    return clean;
+    return clean.endsWith("/") ? clean : `${clean}/`;
   }
   const slugMatch = clean.match(/(?:pelicula|serie)\/([^/]+)/);
   const slug = slugMatch ? slugMatch[1] : clean.replace(/\/+$/, "");
@@ -51,19 +51,50 @@ function extractGnulaContext($: cheerio.CheerioAPI): Record<string, unknown> {
 }
 
 function extractTitle($: cheerio.CheerioAPI): string {
-  const titleFromSr = $("h1.gnrd-fi-title .gnrd-sr").text().trim();
+  const titleFromSr = $(
+    "h1.gnrd-fi-title .gnrd-sr, h1.entry-title .gnrd-sr, h1.title .gnrd-sr",
+  )
+    .first()
+    .text()
+    .trim();
   if (titleFromSr) return titleFromSr;
 
-  const altFromImg = $("h1.gnrd-fi-title img").attr("alt")?.trim();
+  const altFromImg = $(
+    "h1.gnrd-fi-title img, h1.entry-title img, h1.title img",
+  )
+    .first()
+    .attr("alt")
+    ?.trim();
   if (altFromImg) return altFromImg;
 
-  return $("h1.gnrd-fi-title").text().trim();
+  const h1 = $("h1.gnrd-fi-title, h1.entry-title, h1.title, .gnrd-title, h1")
+    .first()
+    .text()
+    .trim();
+  if (h1) return h1;
+
+  const ogTitle = $('meta[property="og:title"]').attr("content")?.trim();
+  if (ogTitle) {
+    return ogTitle
+      .replace(/^Ver\s+/i, "")
+      .replace(/\s*\(\d{4}\).*$/i, "")
+      .replace(/\s*online.*$/i, "")
+      .replace(/\s*-\s*gnula.*$/i, "")
+      .trim();
+  }
+
+  return "";
 }
 
 function extractBackdrop($: cheerio.CheerioAPI): string {
-  const bgStyle = $(".gnrd-fi-bg").attr("style") || "";
+  const bgStyle = $(".gnrd-fi-bg, .backdrop, .cover").attr("style") || "";
   const bgMatch = bgStyle.match(/url\(['"]?([^'"]+?)['"]?\)/);
   let backgroundImage = bgMatch?.[1]?.trim() ?? "";
+
+  if (!backgroundImage) {
+    const ogImage = $('meta[property="og:image"]').attr("content")?.trim();
+    if (ogImage) backgroundImage = ogImage;
+  }
 
   // Prefer original resolution for TMDB images
   if (backgroundImage.includes("image.tmdb.org")) {
@@ -76,7 +107,7 @@ function extractPoster($: cheerio.CheerioAPI, fallbackBackdrop: string): string 
   return (
     $('meta[itemprop="image"]').attr("content") ||
     $('meta[property="og:image"]').attr("content") ||
-    $("img.gnrd-fi-logo").attr("src") ||
+    $("img.gnrd-fi-logo, .poster img, .movie-poster img, .item-cover img").attr("src") ||
     fallbackBackdrop ||
     ""
   );
@@ -84,7 +115,7 @@ function extractPoster($: cheerio.CheerioAPI, fallbackBackdrop: string): string 
 
 function extractYear($: cheerio.CheerioAPI): string {
   let year = "";
-  $(".gnrd-fi-meta span, .gnrd-eyebrow").each((_, el) => {
+  $(".gnrd-fi-meta span, .gnrd-eyebrow, .year, .release-year, a[href*='/year/']").each((_, el) => {
     const text = $(el).text().trim();
     const match = text.match(/\b(19\d\d|20\d\d)\b/);
     if (match && !year) {
@@ -96,7 +127,7 @@ function extractYear($: cheerio.CheerioAPI): string {
 
 function extractDuration($: cheerio.CheerioAPI): string {
   let duration = "";
-  $(".gnrd-fi-meta span").each((_, el) => {
+  $(".gnrd-fi-meta span, .duration, .runtime").each((_, el) => {
     const text = $(el).text().trim();
     if (/\b\d+\s*(?:hr|min|m|h)\b/i.test(text)) {
       duration = text;
@@ -166,6 +197,12 @@ function extractSeasons(
 }
 
 export class GetDetail implements StrategyGetMovieDetails {
+  private readonly fetchFn: typeof gnulaFetch;
+
+  constructor(fetchFn: typeof gnulaFetch = gnulaFetch) {
+    this.fetchFn = fetchFn;
+  }
+
   async operation(link: string): Promise<Omit<StoredMovie, "link" | "updatedAt"> | undefined> {
     const cached = get("gnula", link);
     const isSerie = link.includes("serie");
@@ -193,39 +230,66 @@ export class GetDetail implements StrategyGetMovieDetails {
 
     try {
       const endpoint = resolveDetailPath(link);
-      const response = await gnulaFetch(endpoint, {
+      let response = await this.fetchFn(endpoint, {
         headers: {
           Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         },
       });
+
+      if (!response.ok && endpoint.startsWith("ver/")) {
+        const altEndpoint = endpoint.replace(/^ver\//, "pelicula/");
+        const altResponse = await this.fetchFn(altEndpoint, {
+          headers: {
+            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          },
+        });
+        if (altResponse.ok) {
+          response = altResponse;
+        }
+      }
+
+      if (!response.ok) {
+        return undefined;
+      }
 
       const html = await response.text();
       const $ = cheerio.load(html);
 
       const gnulaContext = extractGnulaContext($);
       const title = extractTitle($);
-      const backgroundImage = extractBackdrop($);
-      const image = extractPoster($, backgroundImage);
+      if (!title || title.trim() === "") {
+        return undefined;
+      }
 
-      const ratingRaw = $(".gnrd-rating, .gnrd-cm-rating").first().text().trim();
+      const backdrop = extractBackdrop($);
+      const poster = extractPoster($, backdrop);
+      const image = poster || backdrop;
+      const backgroundImage = backdrop || image;
+
+      const ratingRaw = $(
+        ".gnrd-rating, .gnrd-cm-rating, .rating, .rating-badge, .imdb",
+      )
+        .first()
+        .text()
+        .trim();
       const rating = ratingRaw.replace(/^★\s*/, "");
 
       const year = extractYear($);
       const duration = extractDuration($);
 
-      const tags = $(".gnrd-fi-genres a, .gnrd-fi-genres span")
+      const tags = $(
+        ".gnrd-fi-genres a, .gnrd-fi-genres span, .genres a, .genre a",
+      )
         .map((_, el) => $(el).text().trim())
         .get()
         .filter(Boolean);
 
-      const caption = $("p.gnrd-fi-syn, #gnrd-syn, p[itemprop='description']")
+      const caption = $(
+        "p.gnrd-fi-syn, #gnrd-syn, p[itemprop='description'], .entry-content p, .overview, .description p, .desc",
+      )
         .first()
         .text()
         .trim();
-
-      if (!title || title.trim() === "") {
-        return undefined;
-      }
 
       const seasons = extractSeasons($, image, gnulaContext);
 
