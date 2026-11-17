@@ -108,7 +108,11 @@ export function ProviderSelector({
     setIsOpen(false);
     startTransition(async () => {
       await setActiveProvider(id);
-      router.refresh();
+      if (typeof window !== "undefined") {
+        window.location.reload();
+      } else {
+        router.refresh();
+      }
     });
   };
 
