@@ -53,7 +53,9 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const isManifestUrl = url.includes(".m3u8");
+  const isManifestUrl =
+    url.includes(".m3u8") ||
+    req.nextUrl.searchParams.get("manifest") === "true";
   const refererParam = req.nextUrl.searchParams.get("referer");
   const directSegmentsParam =
     req.nextUrl.searchParams.get("directSegments") === "true";
@@ -71,6 +73,13 @@ export async function GET(req: NextRequest) {
         parsedUrl.hostname.includes("morencius")
       ) {
         effectiveReferer = "https://megadede.mobi/";
+      } else if (
+        parsedUrl.hostname.includes("savefiles") ||
+        parsedUrl.hostname.includes("vidara") ||
+        parsedUrl.hostname.includes("tube") ||
+        parsedUrl.hostname.includes("gnula")
+      ) {
+        effectiveReferer = "https://ww3.gnulahd.nu/";
       } else {
         effectiveReferer = `${parsedUrl.origin}/`;
       }
@@ -96,6 +105,7 @@ export async function GET(req: NextRequest) {
           ...(effectiveReferer ? { referer: effectiveReferer } : {}),
         },
         throwHttpErrors: false,
+        https: { rejectUnauthorized: false },
         ...(agent ? { agent: { https: agent, http: agent } } : {}),
       });
 

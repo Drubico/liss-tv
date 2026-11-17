@@ -8,6 +8,12 @@ import { Response, type RequestInit } from "node-fetch";
 
 type GnulaMockFetch = (endpointOrUrl: string, options?: RequestInit) => Promise<Response>;
 
+function expectedProxyUrl(streamUrl: string): string {
+  const isM3u8 = streamUrl.includes(".m3u8");
+  const manifestParam = isM3u8 ? "" : "&manifest=true";
+  return `/api/video/m3u8?url=${encodeURIComponent(streamUrl)}&referer=${encodeURIComponent("https://ww3.gnulahd.nu/")}${manifestParam}`;
+}
+
 test("gnrdUnpack decodes base64 XOR payload with key [103, 78, 55, 100]", () => {
   const payload = {
     langs: [
@@ -110,8 +116,9 @@ test("GetUrl resolves Vidara server into direct M3U8 stream", async () => {
   assert.strictEqual(vidaraResolved, true);
   assert.strictEqual(
     result.url,
-    "https://ww3.gnulahd.nu/panel/vidara-resolve.php?pl=1&code=TonyrXmWc1Ie0&host=vidaraa.cc&t=vdauth456"
+    expectedProxyUrl("https://ww3.gnulahd.nu/panel/vidara-resolve.php?pl=1&code=TonyrXmWc1Ie0&host=vidaraa.cc&t=vdauth456")
   );
+  assert.strictEqual(result.headers?.Referer, "https://ww3.gnulahd.nu/");
   assert.strictEqual(result.fallbackUrl, undefined);
 });
 
@@ -170,8 +177,9 @@ test("GetUrl resolves SaveFiles server to master.m3u8", async () => {
 
   assert.strictEqual(
     result.url,
-    "https://s1.savefiles.com/hls2/master.m3u8?token=xyz"
+    expectedProxyUrl("https://s1.savefiles.com/hls2/master.m3u8?token=xyz")
   );
+  assert.strictEqual(result.headers?.Referer, "https://ww3.gnulahd.nu/");
   assert.strictEqual(result.fallbackUrl, undefined);
 });
 
@@ -299,7 +307,8 @@ test("GetUrl resolves The Tube server to master stream", async () => {
 
   const getUrl = new GetUrl(mockFetch);
   const result = await getUrl.operation("/ver/the-tube-test/");
-  assert.strictEqual(result.url, "https://cdn.they.tube/master.m3u8");
+  assert.strictEqual(result.url, expectedProxyUrl("https://cdn.they.tube/master.m3u8"));
+  assert.strictEqual(result.headers?.Referer, "https://ww3.gnulahd.nu/");
   assert.strictEqual(result.fallbackUrl, undefined);
 });
 
@@ -357,7 +366,8 @@ test("GetUrl selects requested language via options.params.lang", async () => {
   const result = await getUrl.operation("/ver/lang-test/", {
     params: { lang: "subtitulado" },
   });
-  assert.strictEqual(result.url, "https://s1.savefiles.com/sub.m3u8");
+  assert.strictEqual(result.url, expectedProxyUrl("https://s1.savefiles.com/sub.m3u8"));
+  assert.strictEqual(result.headers?.Referer, "https://ww3.gnulahd.nu/");
 });
 
 test("GetUrl skips page fetch when full tokens are provided in detailContext", async () => {
@@ -403,7 +413,8 @@ test("GetUrl skips page fetch when full tokens are provided in detailContext", a
   });
 
   assert.strictEqual(pageFetched, false);
-  assert.strictEqual(result.url, "https://s1.savefiles.com/context.m3u8");
+  assert.strictEqual(result.url, expectedProxyUrl("https://s1.savefiles.com/context.m3u8"));
+  assert.strictEqual(result.headers?.Referer, "https://ww3.gnulahd.nu/");
 });
 
 test("GetUrl throws GnulaError when player endpoint fails with HTTP error", async () => {
@@ -478,7 +489,8 @@ test("GetUrl prioritizes SaveFiles over unresolvable servers like bysevepoin.com
 
   const getUrl = new GetUrl(mockFetch);
   const result = await getUrl.operation("/ver/priority-test/");
-  assert.strictEqual(result.url, "https://s1.savefiles.com/prioritized.m3u8");
+  assert.strictEqual(result.url, expectedProxyUrl("https://s1.savefiles.com/prioritized.m3u8"));
+  assert.strictEqual(result.headers?.Referer, "https://ww3.gnulahd.nu/");
 });
 
 test("GetUrl skips Vidara returning aviso.mp4 dummy video and resolves subsequent SaveFiles server", async () => {
@@ -534,7 +546,8 @@ test("GetUrl skips Vidara returning aviso.mp4 dummy video and resolves subsequen
 
   const getUrl = new GetUrl(mockFetch);
   const result = await getUrl.operation("/ver/aviso-test/");
-  assert.strictEqual(result.url, "https://s1.savefiles.com/valid-after-aviso.m3u8");
+  assert.strictEqual(result.url, expectedProxyUrl("https://s1.savefiles.com/valid-after-aviso.m3u8"));
+  assert.strictEqual(result.headers?.Referer, "https://ww3.gnulahd.nu/");
 });
 
 test("GetUrl populates fallbackUrl when multiple valid streams resolve", async () => {
@@ -589,6 +602,7 @@ test("GetUrl populates fallbackUrl when multiple valid streams resolve", async (
 
   const getUrl = new GetUrl(mockFetch);
   const result = await getUrl.operation("/ver/multi-test/");
-  assert.strictEqual(result.url, "https://s1.savefiles.com/stream1.m3u8");
-  assert.strictEqual(result.fallbackUrl, "https://cdn.they.tube/stream2.m3u8");
+  assert.strictEqual(result.url, expectedProxyUrl("https://s1.savefiles.com/stream1.m3u8"));
+  assert.strictEqual(result.fallbackUrl, expectedProxyUrl("https://cdn.they.tube/stream2.m3u8"));
+  assert.strictEqual(result.headers?.Referer, "https://ww3.gnulahd.nu/");
 });

@@ -173,6 +173,15 @@ function extractTheTubeCode(src: string): string | null {
   return null;
 }
 
+function buildProxyUrl(streamUrl: string, referer: string): string {
+  if (streamUrl.startsWith("/api/video/m3u8")) {
+    return streamUrl;
+  }
+  const isM3u8 = streamUrl.includes(".m3u8");
+  const manifestParam = isM3u8 ? "" : "&manifest=true";
+  return `/api/video/m3u8?url=${encodeURIComponent(streamUrl)}&referer=${encodeURIComponent(referer)}${manifestParam}`;
+}
+
 export class GetUrl implements StrategyGetUrl {
   private readonly fetchFn: typeof gnulaFetch;
 
@@ -348,9 +357,16 @@ export class GetUrl implements StrategyGetUrl {
     }
 
     if (resolvedStreams.length > 0) {
+      const primaryM3u8 = resolvedStreams[0];
+      const secondaryM3u8 = resolvedStreams[1];
+      const referer = GNULA_BASE_URL;
+
       return {
-        url: resolvedStreams[0],
-        fallbackUrl: resolvedStreams[1] || undefined,
+        url: buildProxyUrl(primaryM3u8, referer),
+        fallbackUrl: secondaryM3u8 ? buildProxyUrl(secondaryM3u8, referer) : undefined,
+        headers: {
+          Referer: referer,
+        },
       };
     }
 
