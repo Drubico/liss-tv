@@ -74,7 +74,10 @@ test("GetUrl resolves stream and formats proxy URL for Vidstack", async (t) => {
   const result = await getUrl.operation("/vidurl/tt12345/");
 
   assert(result.url?.includes("/api/video/m3u8?url="));
+  assert(result.url?.includes("&referer="));
   assert(result.url?.includes(encodeURIComponent("https://cdn.video.com/hls/master.m3u8")));
+  assert(result.url?.includes("&referer="));
+  assert.strictEqual(result.headers?.Referer, "https://megadede.mobi/");
 });
 
 test("GetUrl resolves series episode via /api/episodio/", async (t) => {
@@ -132,4 +135,5 @@ test("GetUrl resolves series episode via /api/episodio/", async (t) => {
   const result = await getUrl.operation("/serie/the-afterparty#s1-e1");
 
   assert(result.url?.includes("/api/video/m3u8?url="));
+  assert(result.url?.includes("&referer="));
 });

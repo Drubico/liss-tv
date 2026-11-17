@@ -103,9 +103,12 @@ export class GetUrl implements StrategyGetUrl {
     const primaryM3u8 = resolvedStreams[0];
     const secondaryM3u8 = resolvedStreams[1];
 
+    const referer = encodeURIComponent("https://megadede.mobi/");
     return {
-      url: `/api/video/m3u8?url=${encodeURIComponent(primaryM3u8)}`,
-      fallbackUrl: secondaryM3u8 ? `/api/video/m3u8?url=${encodeURIComponent(secondaryM3u8)}` : undefined,
+      url: `/api/video/m3u8?url=${encodeURIComponent(primaryM3u8)}&referer=${referer}`,
+      fallbackUrl: secondaryM3u8
+        ? `/api/video/m3u8?url=${encodeURIComponent(secondaryM3u8)}&referer=${referer}`
+        : undefined,
       headers: {
         Referer: "https://megadede.mobi/",
       },

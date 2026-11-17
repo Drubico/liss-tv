@@ -11,6 +11,7 @@ export function rewriteManifest(
   body: string,
   manifestUrl: string,
   baseOrigin?: string,
+  referer?: string,
 ): string {
   const validOrigin =
     baseOrigin && !baseOrigin.includes("0.0.0.0")
@@ -20,6 +21,8 @@ export function rewriteManifest(
     ? `${validOrigin}${M3U8_PROXY_PATH}`
     : M3U8_PROXY_PATH;
 
+  const refererQuery = referer ? `&referer=${encodeURIComponent(referer)}` : "";
+
   return body
     .split("\n")
     .map((line) => {
@@ -28,13 +31,13 @@ export function rewriteManifest(
       if (trimmed.startsWith("#") && trimmed.includes("URI=")) {
         return line.replace(/URI="([^"]+)"/gi, (_, uri: string) => {
           const absolute = resolveUrl(uri, manifestUrl);
-          return `URI="${prefix}?url=${encodeURIComponent(absolute)}"`;
+          return `URI="${prefix}?url=${encodeURIComponent(absolute)}${refererQuery}"`;
         });
       }
 
       if (trimmed !== "" && !trimmed.startsWith("#")) {
         const absolute = resolveUrl(trimmed, manifestUrl);
-        return `${prefix}?url=${encodeURIComponent(absolute)}`;
+        return `${prefix}?url=${encodeURIComponent(absolute)}${refererQuery}`;
       }
 
       return line;

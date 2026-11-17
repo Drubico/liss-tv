@@ -56,6 +56,26 @@ export async function GET(req: NextRequest) {
 
   const isManifestUrl = url.includes(".m3u8");
 
+  // Determine appropriate upstream referer header
+  const refererParam = req.nextUrl.searchParams.get("referer");
+  let effectiveReferer = refererParam;
+  if (!effectiveReferer) {
+    try {
+      const parsedUrl = new URL(url);
+      if (
+        parsedUrl.hostname.includes("acek-cdn") ||
+        parsedUrl.hostname.includes("vidhide") ||
+        parsedUrl.hostname.includes("morencius")
+      ) {
+        effectiveReferer = "https://megadede.mobi/";
+      } else {
+        effectiveReferer = `${parsedUrl.origin}/`;
+      }
+    } catch {
+      effectiveReferer = "https://megadede.mobi/";
+    }
+  }
+
   try {
     // ------------------------------------------------------------------
     // MANIFEST path — fetch via sticky proxy, rewrite, return as text.
@@ -68,7 +88,10 @@ export async function GET(req: NextRequest) {
         : { agent: undefined };
 
       const manifestRes = await got(url, {
-        headers: { "user-agent": BROWSER_UA },
+        headers: {
+          "user-agent": BROWSER_UA,
+          ...(effectiveReferer ? { referer: effectiveReferer } : {}),
+        },
         throwHttpErrors: false,
         ...(agent ? { agent: { https: agent, http: agent } } : {}),
       });
@@ -83,7 +106,7 @@ export async function GET(req: NextRequest) {
       const body = manifestRes.body;
       const origin = process.env.APP_URL;
       const appOrigin = origin || (req.nextUrl.origin.includes("0.0.0.0") ? "" : req.nextUrl.origin);
-      const rewrittenBody = rewriteManifest(body, url, appOrigin);
+      const rewrittenBody = rewriteManifest(body, url, appOrigin, effectiveReferer);
 
       // Si viene el pathParam, guardar la versión reescrita en MinIO en background y actualizar SQLite
       if (pathParam) {
@@ -116,6 +139,7 @@ export async function GET(req: NextRequest) {
     const nodeStream = got.stream(url, {
       headers: {
         "user-agent": BROWSER_UA,
+        ...(effectiveReferer ? { referer: effectiveReferer } : {}),
         ...(req.headers.get("range")
           ? { range: req.headers.get("range")! }
           : {}),
@@ -123,12 +147,18 @@ export async function GET(req: NextRequest) {
       throwHttpErrors: false,
     });
 
+    if (req.signal) {
+      req.signal.addEventListener("abort", () => {
+        nodeStream.destroy();
+      });
+    }
+
     const upstream = await new Promise<{
       statusCode: number;
       headers: Record<string, string>;
     }>((resolve, reject) => {
-      nodeStream.on("response", resolve);
-      nodeStream.on("error", reject);
+      nodeStream.once("response", resolve);
+      nodeStream.once("error", reject);
     });
 
     if (upstream.statusCode >= 400) {
@@ -163,9 +193,14 @@ export async function GET(req: NextRequest) {
       status: upstream.statusCode,
       headers,
     });
-  } catch {
+  } catch (err: unknown) {
+    if (req.signal?.aborted) {
+      return new NextResponse(null, { status: 499 });
+    }
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[m3u8 proxy] Error proxying:", message, url);
     return NextResponse.json(
-      { error: "Failed to fetch upstream" },
+      { error: "Failed to fetch upstream", details: message },
       { status: 502 },
     );
   }
