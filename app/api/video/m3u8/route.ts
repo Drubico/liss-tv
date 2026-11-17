@@ -9,6 +9,18 @@ import {
 import { getAny, upsert } from "@/services/movie.store";
 import got from "got";
 import { NextRequest, NextResponse } from "next/server";
+import { Agent } from "undici";
+
+// High-performance connection pool with aggressive keep-alive for video segments
+const segmentAgent = new Agent({
+  keepAliveTimeout: 30000,
+  keepAliveMaxTimeout: 60000,
+  connections: 100,
+  pipelining: 1,
+  connect: {
+    rejectUnauthorized: false,
+  },
+});
 
 export async function GET(req: NextRequest) {
   const url = req.nextUrl.searchParams.get("url");
@@ -160,7 +172,8 @@ export async function GET(req: NextRequest) {
       upstreamRes = await fetch(url, {
         headers: segmentHeaders,
         signal: controller.signal,
-      });
+        dispatcher: segmentAgent,
+      } as RequestInit & { dispatcher?: Agent });
     } finally {
       clearTimeout(connectTimeoutId);
       req.signal?.removeEventListener("abort", onReqAbort);
@@ -198,37 +211,15 @@ export async function GET(req: NextRequest) {
 
     const status = upstreamRes.status === 206 && !contentRange ? 200 : upstreamRes.status;
 
-    // Wrap body stream safely so client cancellations/aborts close cleanly
-    // without triggering Next.js 'failed to pipe response' crashes.
+    // Wrap body stream safely via native TransformStream so client cancellations
+    // or seeks close cleanly without triggering Next.js unhandled pipe crashes.
     const upstreamBody = upstreamRes.body;
     let safeStream: ReadableStream | null = null;
 
     if (upstreamBody) {
-      safeStream = new ReadableStream({
-        async start(ctrl) {
-          const reader = upstreamBody.getReader();
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) {
-                try {
-                  ctrl.close();
-                } catch {}
-                break;
-              }
-              ctrl.enqueue(value);
-            }
-          } catch {
-            // Client closed connection or aborted; gracefully terminate stream
-            try {
-              ctrl.close();
-            } catch {}
-          }
-        },
-        cancel(reason) {
-          upstreamBody.cancel(reason).catch(() => {});
-        },
-      });
+      const transform = new TransformStream();
+      upstreamBody.pipeTo(transform.writable).catch(() => {});
+      safeStream = transform.readable;
     }
 
     return new NextResponse(safeStream, {
