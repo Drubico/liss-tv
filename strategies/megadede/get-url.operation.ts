@@ -126,7 +126,7 @@ export class GetUrl implements StrategyGetUrl {
       const slug =
         (options?.params?.slug as string | undefined) ||
         (options?.detailContext?.slug as string | undefined) ||
-        path.replace(/^\/serie\//, "").replace(/#.*$/, "").replace(/\/+$/, "");
+        path.replace(/^\/?(?:serie|pelicula)\//, "").replace(/#.*$/, "").replace(/\/+$/, "");
 
       const episodeApiUrl = `/api/episodio/serie/${encodeURIComponent(slug)}/${season}/${episode}`;
       const epRes = await megadedeFetch(episodeApiUrl, {

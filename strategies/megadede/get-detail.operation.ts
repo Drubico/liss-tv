@@ -123,7 +123,23 @@ export function parseMegadedeDetail(
     if (genre && !tags.includes(genre)) tags.push(genre);
   });
 
-  const isSerie = link.includes("/serie/");
+  const cleanLink = link.startsWith("http")
+    ? new URL(link).pathname
+    : link.startsWith("/")
+    ? link
+    : `/${link}`;
+
+  const isSerie =
+    cleanLink.startsWith("/serie/") ||
+    cleanLink.includes("/serie/") ||
+    cleanLink.includes("serie") ||
+    $("#item-context").attr("data-type") === "serie" ||
+    $(".season-container").length > 0;
+
+  const cleanSlug = cleanLink
+    .replace(/^\/?(?:serie|pelicula)\//, "")
+    .replace(/#.*$/, "")
+    .replace(/\/+$/, "");
 
   let movieUrl: string | undefined = undefined;
   if (!isSerie) {
@@ -141,8 +157,8 @@ export function parseMegadedeDetail(
   const seasonsMap: Map<string, Episode[]> = new Map();
 
   if (isSerie) {
-    $(".season-container[data-season]").each((_, seasonEl) => {
-      const seasonNum = $(seasonEl).attr("data-season") || "1";
+    $(".season-container").each((idx, seasonEl) => {
+      const seasonNum = $(seasonEl).attr("data-season") || String(idx + 1);
       const episodes: Episode[] = [];
 
       $(seasonEl)
@@ -161,7 +177,7 @@ export function parseMegadedeDetail(
             ? epHref
             : epHref.startsWith("/")
             ? epHref
-            : `${link}${epHref.startsWith("#") ? epHref : `#${epHref}`}`;
+            : `/serie/${cleanSlug}${epHref.startsWith("#") ? epHref : `#${epHref}`}`;
 
           episodes.push({
             numberEpisode: epNum,
@@ -172,7 +188,7 @@ export function parseMegadedeDetail(
             context: {
               season: parseInt(seasonNum, 10),
               episode: parseInt(epNum, 10),
-              slug: link.replace(/^\/serie\//, "").replace(/#.*$/, "").replace(/\/+$/, ""),
+              slug: cleanSlug,
               provider: "megadede",
             },
           });
@@ -182,6 +198,46 @@ export function parseMegadedeDetail(
         seasonsMap.set(seasonNum, episodes);
       }
     });
+
+    if (seasonsMap.size === 0) {
+      $("a.episode-card, a[data-episode-link], a[href*='#s']").each((_, epEl) => {
+        const $ep = $(epEl);
+        const seasonNum =
+          $ep.attr("data-season") ||
+          $ep.attr("href")?.match(/#s(\d+)/)?.[1] ||
+          "1";
+        const epNum =
+          $ep.attr("data-episode") ||
+          $ep.attr("href")?.match(/-e(\d+)/)?.[1] ||
+          $ep.find(".fz5").text().replace(/[^0-9]/g, "").trim() ||
+          "1";
+        const epTitle =
+          $ep.find(".tvw, .episode-title, p").first().text().trim() ||
+          `Episodio ${epNum}`;
+        const epHref = $ep.attr("href") || `#s${seasonNum}-e${epNum}`;
+        const cleanEpLink = epHref.startsWith("http")
+          ? epHref
+          : epHref.startsWith("/")
+          ? epHref
+          : `/serie/${cleanSlug}${epHref.startsWith("#") ? epHref : `#${epHref}`}`;
+
+        const existing = seasonsMap.get(seasonNum) || [];
+        existing.push({
+          numberEpisode: epNum,
+          title: epTitle,
+          image,
+          caption: "",
+          link: cleanEpLink,
+          context: {
+            season: parseInt(seasonNum, 10),
+            episode: parseInt(epNum, 10),
+            slug: cleanSlug,
+            provider: "megadede",
+          },
+        });
+        seasonsMap.set(seasonNum, existing);
+      });
+    }
   }
 
   const seasons: Season[] = Array.from(seasonsMap.entries()).map(([season, episodes]) => ({

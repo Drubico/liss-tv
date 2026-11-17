@@ -126,6 +126,16 @@ test("parseMegadedeDetail correctly parses movie details and vidurl", () => {
   assert.strictEqual(detail.movieUrl, "/vidurl/tt34724686/");
 });
 
+test("parseMegadedeDetail parses series even when link lacks leading slash (e.g. serie/dexter)", () => {
+  const detail = parseMegadedeDetail(SAMPLE_SERIE_DETAIL_HTML, "serie/the-afterparty");
+  assert(detail !== undefined);
+  assert.strictEqual(detail.title, "The Afterparty");
+  assert.strictEqual(detail.type, "serie");
+  assert.strictEqual(detail.episodes?.length, 2);
+  assert.strictEqual(detail.episodes[0].episodes[0].link, "/serie/the-afterparty#s1-e1");
+  assert.strictEqual(detail.episodes[0].episodes[0].context?.slug, "the-afterparty");
+});
+
 test("parseMegadedeDetail correctly parses serie details with seasons and episodes", () => {
   const detail = parseMegadedeDetail(SAMPLE_SERIE_DETAIL_HTML, "/serie/the-afterparty");
   assert(detail !== undefined);
