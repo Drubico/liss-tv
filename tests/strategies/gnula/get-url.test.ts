@@ -11,7 +11,7 @@ type GnulaMockFetch = (endpointOrUrl: string, options?: RequestInit) => Promise<
 function expectedProxyUrl(streamUrl: string): string {
   const isM3u8 = streamUrl.includes(".m3u8");
   const manifestParam = isM3u8 ? "" : "&manifest=true";
-  return `/api/video/m3u8?url=${encodeURIComponent(streamUrl)}&referer=${encodeURIComponent("https://ww3.gnulahd.nu/")}${manifestParam}`;
+  return `/api/video/m3u8?url=${encodeURIComponent(streamUrl)}&referer=${encodeURIComponent("https://ww3.gnulahd.nu/")}${manifestParam}&directSegments=true`;
 }
 
 test("gnrdUnpack decodes base64 XOR payload with key [103, 78, 55, 100]", () => {
