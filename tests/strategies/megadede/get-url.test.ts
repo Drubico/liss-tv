@@ -148,3 +148,58 @@ test("GetUrl resolves series episode via /api/episodio/", async (t) => {
   });
   assert(resultViaContext.url?.includes("/api/video/m3u8?url="));
 });
+
+test("GetUrl prioritizes VOE and Streamwish over Vidhide", async (t) => {
+  const challenge = "testchallenge";
+  const salt = "testsalt";
+  const vidhideCipher = encryptTestPayload("https://morencius.com/embed/vid1", challenge, salt);
+  const streamwishCipher = encryptTestPayload("https://hglink.to/e/sw1", challenge, salt);
+  const voeCipher = encryptTestPayload("https://voe.sx/e/voe1", challenge, salt);
+
+  const mockVidurlHtml = `
+    <script>
+      const LINK_CHALLENGE = '${challenge}';
+      const LINK_SALT = '${salt}';
+      const dataLink = [
+        {
+          video_language: "LAT",
+          sortedEmbeds: [
+            { servername: "vidhide", link: "${vidhideCipher}", type: "video" },
+            { servername: "streamwish", link: "${streamwishCipher}", type: "video" },
+            { servername: "voe", link: "${voeCipher}", type: "video" }
+          ]
+        }
+      ];
+    </script>
+  `;
+
+  const originalFetch = global.fetch;
+  global.fetch = async (input: RequestInfo | URL) => {
+    const url = input.toString();
+    if (url.includes("/vidurl/")) {
+      return new Response(mockVidurlHtml, { status: 200 });
+    }
+    if (url.includes("morencius.com")) {
+      return new Response('eval(function(p,a,c,k,e,d){return p}("var s=\\"https://cdn.vidhide.com/master.m3u8\\"",1,1,"".split("|")))', { status: 200 });
+    }
+    if (url.includes("hglink.to")) {
+      return new Response('var url = "https://cdn.streamwish.com/master.m3u8";', { status: 200 });
+    }
+    if (url.includes("voe.sx")) {
+      return new Response('{"hls": "https://cdn.voe.sx/master.m3u8"}', { status: 200 });
+    }
+    return new Response("Not found", { status: 404 });
+  };
+
+  t.after(() => {
+    global.fetch = originalFetch;
+  });
+
+  const getUrl = new GetUrl();
+  const result = await getUrl.operation("/vidurl/tt12345/");
+
+  // VOE should be prioritized first
+  assert(result.url?.includes(encodeURIComponent("https://cdn.voe.sx/master.m3u8")));
+  // Streamwish should be the fallback before Vidhide
+  assert(result.fallbackUrl?.includes(encodeURIComponent("https://cdn.streamwish.com/master.m3u8")));
+});

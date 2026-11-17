@@ -70,9 +70,23 @@ export class GetUrl implements StrategyGetUrl {
       throw new MegadedeError(`[Megadede] No streaming embeds available for language ${preferredLang}`);
     }
 
+    const getServerPriority = (servername: string): number => {
+      const s = servername.toLowerCase();
+      if (s.includes("voe")) return 1;
+      if (s.includes("streamwish") || s.includes("hglink")) return 2;
+      if (s.includes("vidhide") || s.includes("morencius")) return 3;
+      return 4;
+    };
+
+    const prioritizedEmbeds = [...selectedGroup.sortedEmbeds].sort(
+      (a, b) =>
+        getServerPriority(a.servername || "") -
+        getServerPriority(b.servername || ""),
+    );
+
     const resolvedStreams: string[] = [];
 
-    for (const embed of selectedGroup.sortedEmbeds) {
+    for (const embed of prioritizedEmbeds) {
       try {
         const decryptedUrl = decryptAesLink(embed.link, challenge, salt);
         if (!decryptedUrl) continue;
@@ -80,12 +94,12 @@ export class GetUrl implements StrategyGetUrl {
         let m3u8Url: string | null = null;
         const server = embed.servername?.toLowerCase() || "";
 
-        if (server.includes("vidhide") || decryptedUrl.includes("morencius") || decryptedUrl.includes("vidhide")) {
-          m3u8Url = await extractVidhideM3u8(decryptedUrl);
+        if (server.includes("voe") || decryptedUrl.includes("voe.sx")) {
+          m3u8Url = await extractVoeM3u8(decryptedUrl);
         } else if (server.includes("streamwish") || decryptedUrl.includes("hglink")) {
           m3u8Url = await extractStreamwishM3u8(decryptedUrl);
-        } else if (server.includes("voe") || decryptedUrl.includes("voe.sx")) {
-          m3u8Url = await extractVoeM3u8(decryptedUrl);
+        } else if (server.includes("vidhide") || decryptedUrl.includes("morencius") || decryptedUrl.includes("vidhide")) {
+          m3u8Url = await extractVidhideM3u8(decryptedUrl);
         }
 
         if (m3u8Url) {
