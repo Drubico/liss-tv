@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import type { Movie, Movies, StrategyGetAllMovies } from "@/types/movie";
-import { getAllData, upsertAll } from "@/services/movie.store";
+import { getAllData, upsert, upsertAll } from "@/services/movie.store";
 import { gnulaFetch } from "./client";
 
 const CACHE_TTL_SEARCH_HOURS = 1;
@@ -164,6 +164,20 @@ export class GetAll implements StrategyGetAllMovies {
 
     const result: Movies = { movies, lastPageNumber: 1, hasMore: false };
     upsertAll<Movies>("gnula", cacheKey, result);
+
+    for (const m of movies) {
+      if (m.link) {
+        upsert("gnula", m.link, {
+          title: m.title,
+          image: m.image,
+          rating: m.rating,
+          year: m.year,
+          type: m.type,
+          provider: "gnula",
+          context: m.context,
+        });
+      }
+    }
     return result;
   }
 
@@ -194,6 +208,20 @@ export class GetAll implements StrategyGetAllMovies {
 
     const result: Movies = { movies, lastPageNumber, hasMore };
     upsertAll<Movies>("gnula", cacheKey, result);
+
+    for (const m of movies) {
+      if (m.link) {
+        upsert("gnula", m.link, {
+          title: m.title,
+          image: m.image,
+          rating: m.rating,
+          year: m.year,
+          type: m.type,
+          provider: "gnula",
+          context: m.context,
+        });
+      }
+    }
     return result;
   }
 }

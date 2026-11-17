@@ -10,17 +10,18 @@ function isCacheExpired(dateString: string, maxAgeDays: number): boolean {
   return ageInDays > maxAgeDays;
 }
 
-function resolveDetailPath(link: string): string {
+function getDetailCandidatePaths(link: string): string[] {
   if (link.startsWith("http://") || link.startsWith("https://")) {
-    return link;
+    return [link];
   }
-  const clean = link.replace(/^\/+/, "");
-  if (clean.startsWith("ver/")) {
-    return clean.endsWith("/") ? clean : `${clean}/`;
-  }
-  const slugMatch = clean.match(/(?:pelicula|serie)\/([^/]+)/);
-  const slug = slugMatch ? slugMatch[1] : clean.replace(/\/+$/, "");
-  return `ver/${slug}/`;
+  const clean = link.replace(/^\/+/, "").replace(/\/+$/, "");
+  const slug = clean.replace(/^(?:ver|pelicula|serie)\//, "");
+  return [
+    `ver/${slug}/`,
+    `${slug}/`,
+    `pelicula/${slug}/`,
+    `serie/${slug}/`,
+  ];
 }
 
 function extractGnulaContext($: cheerio.CheerioAPI): Record<string, unknown> {
@@ -76,6 +77,16 @@ function extractTitle($: cheerio.CheerioAPI): string {
   const ogTitle = $('meta[property="og:title"]').attr("content")?.trim();
   if (ogTitle) {
     return ogTitle
+      .replace(/^Ver\s+/i, "")
+      .replace(/\s*\(\d{4}\).*$/i, "")
+      .replace(/\s*online.*$/i, "")
+      .replace(/\s*-\s*gnula.*$/i, "")
+      .trim();
+  }
+
+  const rawTitle = $("title").text().trim();
+  if (rawTitle) {
+    return rawTitle
       .replace(/^Ver\s+/i, "")
       .replace(/\s*\(\d{4}\).*$/i, "")
       .replace(/\s*online.*$/i, "")
@@ -229,26 +240,28 @@ export class GetDetail implements StrategyGetMovieDetails {
     }
 
     try {
-      const endpoint = resolveDetailPath(link);
-      let response = await this.fetchFn(endpoint, {
-        headers: {
-          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        },
-      });
+      const candidates = getDetailCandidatePaths(link);
+      let response: Response | undefined;
+      let matchedEndpoint = "";
 
-      if (!response.ok && endpoint.startsWith("ver/")) {
-        const altEndpoint = endpoint.replace(/^ver\//, "pelicula/");
-        const altResponse = await this.fetchFn(altEndpoint, {
-          headers: {
-            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-          },
-        });
-        if (altResponse.ok) {
-          response = altResponse;
+      for (const ep of candidates) {
+        try {
+          const res = await this.fetchFn(ep, {
+            headers: {
+              Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            },
+          });
+          if (res.ok) {
+            response = res;
+            matchedEndpoint = ep;
+            break;
+          }
+        } catch {
+          // Continue to next candidate
         }
       }
 
-      if (!response.ok) {
+      if (!response || !response.ok) {
         return undefined;
       }
 
@@ -256,9 +269,15 @@ export class GetDetail implements StrategyGetMovieDetails {
       const $ = cheerio.load(html);
 
       const gnulaContext = extractGnulaContext($);
-      const title = extractTitle($);
+      let title = extractTitle($);
       if (!title || title.trim() === "") {
-        return undefined;
+        const cleanSlug = link
+          .replace(/[?#].*$/, "")
+          .replace(/^https?:\/\/[^/]+/, "")
+          .replace(/^\/+/, "")
+          .replace(/^(?:ver|pelicula|serie)\//, "")
+          .replace(/\/+$/, "");
+        title = cleanSlug.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
       }
 
       const backdrop = extractBackdrop($);

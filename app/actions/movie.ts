@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { withTimeout, attempts, inferProviderFromLink } from "@/utils/utils";
 import { DriverRegistry } from "@/drivers/registry";
 import { GetUrlOptions, MovieDriver } from "@/types/movie";
-import { get, getAny } from "@/services/movie.store";
+import { get, getAny, findProviderBySlugOrLink } from "@/services/movie.store";
 
 const PROVIDER_COOKIE_NAME = "liss_provider";
 const DEFAULT_PROVIDER = "megadede";
@@ -45,7 +45,11 @@ export async function getAllMovies(
 
 export async function getDetails(link: string, providerId?: string) {
   const stored = providerId ? get(providerId, link) : getAny(link);
-  const resolvedProvider = providerId || stored?.provider || inferProviderFromLink(link);
+  const resolvedProvider =
+    providerId ||
+    stored?.provider ||
+    inferProviderFromLink(link) ||
+    findProviderBySlugOrLink(link);
   const driver = await getActiveDriver(resolvedProvider);
   return await driver.getDetail(link);
 }

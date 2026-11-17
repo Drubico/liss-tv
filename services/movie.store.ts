@@ -274,6 +274,40 @@ export function getAllData<A>(
   }
 }
 
+export function findProviderBySlugOrLink(link: string): string | undefined {
+  if (!link) return undefined;
+  const db = getDatabase();
+  const cleanSlug = link
+    .replace(/[?#].*$/, "")
+    .replace(/^https?:\/\/[^/]+/, "")
+    .replace(/^\/+/, "")
+    .replace(/^(?:pelicula|serie|ver)\//, "")
+    .replace(/\/+$/, "");
+
+  if (!cleanSlug) return undefined;
+
+  try {
+    // 1. Direct match on key or normalized path
+    const directRow = db
+      .prepare(
+        "SELECT provider FROM movie_cache WHERE key = ? OR key = ? OR key = ? LIMIT 1",
+      )
+      .get(`/${cleanSlug}`, `/pelicula/${cleanSlug}`, `/serie/${cleanSlug}`) as
+      | { provider: string }
+      | undefined;
+    if (directRow?.provider) return directRow.provider;
+
+    // 2. Match within cached catalog JSON data
+    const catalogRow = db
+      .prepare("SELECT provider FROM movie_cache WHERE data LIKE ? LIMIT 1")
+      .get(`%${cleanSlug}%`) as { provider: string } | undefined;
+    if (catalogRow?.provider) return catalogRow.provider;
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
 export function clearProvider(provider: string): void {
   if (!provider) return;
   const db = getDatabase();

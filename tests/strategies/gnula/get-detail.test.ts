@@ -98,3 +98,23 @@ test("GetDetail falls back from ver/<slug>/ to pelicula/<slug>/ when ver returns
   assert(detail !== undefined);
   assert.strictEqual(detail.title, "Deadpool y Wolverine");
 });
+
+test("GetDetail resolves title located directly at root slug path", async () => {
+  const mockFetch = async (url: string) => {
+    if (url.includes("ver/shaun-the-sheep-the-beast-of-mossy-bottom/")) {
+      return new Response("Not found", { status: 404 });
+    }
+    if (url.includes("shaun-the-sheep-the-beast-of-mossy-bottom/")) {
+      return new Response(SAMPLE_GNULA_DETAIL_HTML, {
+        status: 200,
+        headers: { "Content-Type": "text/html" },
+      });
+    }
+    return new Response("Not found", { status: 404 });
+  };
+
+  const getDetail = new GetDetail(mockFetch as unknown as typeof import("../../../strategies/gnula/client.ts").gnulaFetch);
+  const detail = await getDetail.operation("/pelicula/shaun-the-sheep-the-beast-of-mossy-bottom");
+  assert(detail !== undefined);
+  assert.strictEqual(detail.title, "Deadpool y Wolverine");
+});
