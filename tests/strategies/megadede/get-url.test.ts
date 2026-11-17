@@ -1,0 +1,135 @@
+import test from "node:test";
+import assert from "node:assert";
+import crypto from "crypto";
+import {
+  decryptAesLink,
+  GetUrl,
+} from "../../../strategies/megadede/get-url.operation.ts";
+
+function encryptTestPayload(plainText: string, challenge: string, salt: string): string {
+  const key = crypto.createHash("sha256").update(challenge + salt).digest();
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
+  let encrypted = cipher.update(plainText, "utf8");
+  encrypted = Buffer.concat([encrypted, cipher.final()]);
+  return Buffer.concat([iv, encrypted]).toString("base64");
+}
+
+test("decryptAesLink correctly decrypts AES-256-CBC payloads", () => {
+  const challenge = "110d5a96099e75b0bc075f34cec61ca8";
+  const salt = "6d07665b9850a0db";
+  const originalUrl = "https://morencius.com/embed/test12345";
+  const cipherBase64 = encryptTestPayload(originalUrl, challenge, salt);
+
+  const decrypted = decryptAesLink(cipherBase64, challenge, salt);
+  assert.strictEqual(decrypted, originalUrl);
+});
+
+test("GetUrl resolves stream and formats proxy URL for Vidstack", async (t) => {
+  const challenge = "testchallenge";
+  const salt = "testsalt";
+  const cipherBase64 = encryptTestPayload("https://morencius.com/embed/vid123", challenge, salt);
+
+  const mockVidurlHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <script>
+        const LINK_CHALLENGE = '${challenge}';
+        const LINK_SALT = '${salt}';
+        const dataLink = [
+          {
+            video_language: "LAT",
+            sortedEmbeds: [
+              { servername: "vidhide", link: "${cipherBase64}", type: "video" }
+            ]
+          }
+        ];
+      </script>
+    </head>
+    </html>
+  `;
+
+  const mockVidhidePage = `
+    eval(function(p,a,c,k,e,d){while(c--)if(k[c])p=p.replace(new RegExp('\\\\b'+c.toString(a)+'\\\\b','g'),k[c]);return p}('0 1="2://3.4.5/6/7.8";',9,9,'var|streamUrl|https|cdn|video|com|hls|master|m3u8'.split('|')))
+  `;
+
+  const originalFetch = global.fetch;
+  global.fetch = async (input: RequestInfo | URL) => {
+    const url = input.toString();
+    if (url.includes("/vidurl/")) {
+      return new Response(mockVidurlHtml, { status: 200 });
+    }
+    if (url.includes("morencius.com")) {
+      return new Response(mockVidhidePage, { status: 200 });
+    }
+    return new Response("Not found", { status: 404 });
+  };
+
+  t.after(() => {
+    global.fetch = originalFetch;
+  });
+
+  const getUrl = new GetUrl();
+  const result = await getUrl.operation("/vidurl/tt12345/");
+
+  assert(result.url?.includes("/api/video/m3u8?url="));
+  assert(result.url?.includes(encodeURIComponent("https://cdn.video.com/hls/master.m3u8")));
+});
+
+test("GetUrl resolves series episode via /api/episodio/", async (t) => {
+  const challenge = "testchallenge";
+  const salt = "testsalt";
+  const cipherBase64 = encryptTestPayload("https://morencius.com/embed/vid123", challenge, salt);
+
+  const mockEpisodeJson = {
+    success: true,
+    html: '<button class="ep-player__btn active" type="button" data-url="/vidurl/tt12614214-1x01/">Embed69</button>'
+  };
+
+  const mockVidurlHtml = `
+    <script>
+      const LINK_CHALLENGE = '${challenge}';
+      const LINK_SALT = '${salt}';
+      const dataLink = [
+        {
+          video_language: "LAT",
+          sortedEmbeds: [
+            { servername: "vidhide", link: "${cipherBase64}", type: "video" }
+          ]
+        }
+      ];
+    </script>
+  `;
+
+  const mockVidhidePage = `
+    eval(function(p,a,c,k,e,d){while(c--)if(k[c])p=p.replace(new RegExp('\\\\b'+c.toString(a)+'\\\\b','g'),k[c]);return p}('0 1="2://3.4.5/6/7.8";',9,9,'var|streamUrl|https|cdn|video|com|hls|master|m3u8'.split('|')))
+  `;
+
+  const originalFetch = global.fetch;
+  global.fetch = async (input: RequestInfo | URL) => {
+    const url = input.toString();
+    if (url.includes("/api/episodio/")) {
+      return new Response(JSON.stringify(mockEpisodeJson), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+    if (url.includes("/vidurl/")) {
+      return new Response(mockVidurlHtml, { status: 200 });
+    }
+    if (url.includes("morencius.com")) {
+      return new Response(mockVidhidePage, { status: 200 });
+    }
+    return new Response("Not found", { status: 404 });
+  };
+
+  t.after(() => {
+    global.fetch = originalFetch;
+  });
+
+  const getUrl = new GetUrl();
+  const result = await getUrl.operation("/serie/the-afterparty#s1-e1");
+
+  assert(result.url?.includes("/api/video/m3u8?url="));
+});
