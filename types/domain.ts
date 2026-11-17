@@ -46,6 +46,8 @@ export interface StreamSource {
   url?: string | null;
   fallbackUrl?: string | null;
   headers?: Record<string, string>;
+  directSegments?: boolean;
+  referer?: string;
 }
 
 // Backward compatibility alias for StreamSource
