@@ -32,7 +32,7 @@ export function ProviderSelector({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isOpen, setIsOpen] = useState(false);
-  const [activeProvider, setActiveProviderState] = useState<string>("gnula");
+  const [activeProvider, setActiveProviderState] = useState<string>("megadede");
 
   const isProviderDisabled = (id: string): boolean => {
     const val = disabledProviders[id];
@@ -52,10 +52,10 @@ export function ProviderSelector({
   });
 
   const [providers, setProviders] = useState<ProviderOption[]>([
-    buildProviderOption({ id: "gnula", name: "Gnula HD" }),
-    buildProviderOption({ id: "solo-latino", name: "Solo Latino" }),
-    buildProviderOption({ id: "serieslan", name: "SeriesLan" }),
     buildProviderOption({ id: "megadede", name: "Megadede" }),
+    buildProviderOption({ id: "gnula", name: "Gnula HD" }),
+    buildProviderOption({ id: "serieslan", name: "SeriesLan" }),
+    buildProviderOption({ id: "solo-latino", name: "Solo Latino" }),
   ]);
 
   useEffect(() => {
@@ -71,16 +71,16 @@ export function ProviderSelector({
             available && available.length > 0
               ? available.map(buildProviderOption)
               : [
-                  buildProviderOption({ id: "gnula", name: "Gnula HD" }),
-                  buildProviderOption({ id: "solo-latino", name: "Solo Latino" }),
-                  buildProviderOption({ id: "serieslan", name: "SeriesLan" }),
                   buildProviderOption({ id: "megadede", name: "Megadede" }),
+                  buildProviderOption({ id: "gnula", name: "Gnula HD" }),
+                  buildProviderOption({ id: "serieslan", name: "SeriesLan" }),
+                  buildProviderOption({ id: "solo-latino", name: "Solo Latino" }),
                 ];
           setProviders(mapped);
 
           // If the currently active provider is disabled, auto-switch to first available enabled provider
           if (active && isProviderDisabled(active)) {
-            const fallback = mapped.find((p) => !p.disabled)?.id || "gnula";
+            const fallback = mapped.find((p) => !p.disabled)?.id || "megadede";
             setActiveProviderState(fallback);
             await setActiveProvider(fallback);
             router.refresh();
