@@ -63,6 +63,8 @@ export async function GET(req: NextRequest) {
       const parsedUrl = new URL(url);
       if (
         parsedUrl.hostname.includes("acek-cdn") ||
+        parsedUrl.hostname.includes("dramiyos-cdn") ||
+        parsedUrl.hostname.includes("-cdn.com") ||
         parsedUrl.hostname.includes("vidhide") ||
         parsedUrl.hostname.includes("morencius")
       ) {
@@ -184,15 +186,19 @@ export async function GET(req: NextRequest) {
     headers.set("Cache-Control", "public, max-age=3600");
     headers.set(
       "Access-Control-Expose-Headers",
-      "Content-Range, Content-Length, Accept-Ranges",
+      "Content-Range, Accept-Ranges",
     );
 
-    const contentLength = upstreamRes.headers.get("content-length");
+    // IMPORTANT: Do NOT set Content-Length on chunked ReadableStreams in HTTP/2.
+    // If a client cancels/seeks or closes before every byte is transferred,
+    // sending a Content-Length that doesn't match the transmitted DATA frames
+    // triggers an RFC 7540 PROTOCOL_ERROR (net::ERR_HTTP2_PROTOCOL_ERROR).
     const contentRange = upstreamRes.headers.get("content-range");
     const acceptRanges = upstreamRes.headers.get("accept-ranges");
-    if (contentLength) headers.set("Content-Length", contentLength);
     if (contentRange) headers.set("Content-Range", contentRange);
     if (acceptRanges) headers.set("Accept-Ranges", acceptRanges);
+
+    const status = upstreamRes.status === 206 && !contentRange ? 200 : upstreamRes.status;
 
     // Wrap body stream safely so client cancellations/aborts close cleanly
     // without triggering Next.js 'failed to pipe response' crashes.
@@ -228,7 +234,7 @@ export async function GET(req: NextRequest) {
     }
 
     return new NextResponse(safeStream, {
-      status: upstreamRes.status,
+      status,
       headers,
     });
   } catch (err: unknown) {
