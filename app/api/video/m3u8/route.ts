@@ -134,8 +134,6 @@ export async function GET(req: NextRequest) {
 
     // ------------------------------------------------------------------
     // SEGMENT path — stream directly with native fetch, no proxy.
-    // Native fetch uses Web ReadableStreams natively without got's
-    // strictContentLength mismatch errors when clients abort or seek.
     // ------------------------------------------------------------------
     const segmentHeaders: Record<string, string> = {
       "user-agent": BROWSER_UA,
@@ -147,16 +145,26 @@ export async function GET(req: NextRequest) {
       segmentHeaders["range"] = rangeHeader;
     }
 
-    const abortSignals: AbortSignal[] = [AbortSignal.timeout(25000)];
-    if (req.signal) {
-      abortSignals.push(req.signal);
-    }
-    const signal = AbortSignal.any(abortSignals);
+    // Timeout only applies to initial connection & receiving HTTP headers (15s)
+    // so slow large segment downloads are not aborted midway.
+    const controller = new AbortController();
+    const connectTimeoutId = setTimeout(() => {
+      controller.abort(new Error("Upstream connection timeout"));
+    }, 15000);
 
-    const upstreamRes = await fetch(url, {
-      headers: segmentHeaders,
-      signal,
-    });
+    const onReqAbort = () => controller.abort();
+    req.signal?.addEventListener("abort", onReqAbort);
+
+    let upstreamRes: Response;
+    try {
+      upstreamRes = await fetch(url, {
+        headers: segmentHeaders,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(connectTimeoutId);
+      req.signal?.removeEventListener("abort", onReqAbort);
+    }
 
     if (!upstreamRes.ok && upstreamRes.status !== 206) {
       console.warn(
@@ -186,7 +194,40 @@ export async function GET(req: NextRequest) {
     if (contentRange) headers.set("Content-Range", contentRange);
     if (acceptRanges) headers.set("Accept-Ranges", acceptRanges);
 
-    return new NextResponse(upstreamRes.body, {
+    // Wrap body stream safely so client cancellations/aborts close cleanly
+    // without triggering Next.js 'failed to pipe response' crashes.
+    const upstreamBody = upstreamRes.body;
+    let safeStream: ReadableStream | null = null;
+
+    if (upstreamBody) {
+      safeStream = new ReadableStream({
+        async start(ctrl) {
+          const reader = upstreamBody.getReader();
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) {
+                try {
+                  ctrl.close();
+                } catch {}
+                break;
+              }
+              ctrl.enqueue(value);
+            }
+          } catch {
+            // Client closed connection or aborted; gracefully terminate stream
+            try {
+              ctrl.close();
+            } catch {}
+          }
+        },
+        cancel(reason) {
+          upstreamBody.cancel(reason).catch(() => {});
+        },
+      });
+    }
+
+    return new NextResponse(safeStream, {
       status: upstreamRes.status,
       headers,
     });
