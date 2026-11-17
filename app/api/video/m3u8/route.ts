@@ -60,31 +60,13 @@ export async function GET(req: NextRequest) {
   const directSegmentsParam =
     req.nextUrl.searchParams.get("directSegments") === "true";
 
-  // Determine appropriate upstream referer header
-  let effectiveReferer = refererParam;
+  // Determine upstream referer: honor explicit parameter or fallback to resource origin
+  let effectiveReferer = refererParam || undefined;
   if (!effectiveReferer) {
     try {
-      const parsedUrl = new URL(url);
-      if (
-        parsedUrl.hostname.includes("acek-cdn") ||
-        parsedUrl.hostname.includes("dramiyos-cdn") ||
-        parsedUrl.hostname.includes("-cdn.com") ||
-        parsedUrl.hostname.includes("vidhide") ||
-        parsedUrl.hostname.includes("morencius")
-      ) {
-        effectiveReferer = "https://megadede.mobi/";
-      } else if (
-        parsedUrl.hostname.includes("savefiles") ||
-        parsedUrl.hostname.includes("vidara") ||
-        parsedUrl.hostname.includes("tube") ||
-        parsedUrl.hostname.includes("gnula")
-      ) {
-        effectiveReferer = "https://ww3.gnulahd.nu/";
-      } else {
-        effectiveReferer = `${parsedUrl.origin}/`;
-      }
+      effectiveReferer = `${new URL(url).origin}/`;
     } catch {
-      effectiveReferer = "https://megadede.mobi/";
+      effectiveReferer = undefined;
     }
   }
 
