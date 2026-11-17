@@ -8,19 +8,54 @@ export function parseMegadedeCatalog(html: string, currentPage = 1): Movies {
 
   $("article.mv, article.item, article.film, article.card").each((_, el) => {
     const $el = $(el);
-    const linkEl = $el.find("h2.entry-title a, .title a, a[href*='/pelicula/'], a[href*='/serie/']").first();
+    const linkEl = $el.find("a.lnk-blk, a[href*='/pelicula/'], a[href*='/serie/']").first();
     const link = linkEl.attr("href") || "";
-    const title = linkEl.text().trim() || $el.find("img").attr("alt")?.trim() || "";
 
-    if (!link || !title) return;
+    // 1. Extract title accurately, discarding generic button labels like "Ver contenido"
+    let title =
+      $el.find("header h2, h2.entry-title, h2, .title").first().text().trim() ||
+      linkEl.attr("aria-label")?.trim() ||
+      "";
 
-    let image = $el.find("figure img, img").attr("src") || "";
+    if (!title || title.toLowerCase() === "ver contenido") {
+      const imgTitle = $el.find("figure img, img").attr("title");
+      if (imgTitle) {
+        title = imgTitle.replace(/\s*-\s*Ver.*$/i, "").trim();
+      } else {
+        const imgAlt = $el.find("figure img, img").attr("alt");
+        if (imgAlt) {
+          title = imgAlt
+            .replace(/^Ver\s+/i, "")
+            .replace(/\s*\(\d{4}\).*$/i, "")
+            .replace(/\s*online.*$/i, "")
+            .trim();
+        }
+      }
+    }
+
+    if (!link || !title || title.toLowerCase() === "ver contenido") return;
+
+    // 2. Poster image
+    let image =
+      $el.find("figure img, img").attr("src") ||
+      $el.find("figure img, img").attr("data-src") ||
+      "";
     if (image.startsWith("//")) {
       image = `https:${image}`;
     }
 
-    const year = $el.find(".year, .release-year, .date").text().trim();
-    const rating = $el.find(".rating, .vote, .imdb").text().trim();
+    // 3. Year
+    let year =
+      $el.find("header span.op6, header .fz6, .year, .release-year, .date").first().text().trim();
+    const yearMatch = (year || $el.text()).match(/\b(19\d\d|20\d\d)\b/);
+    if (yearMatch) {
+      year = yearMatch[0];
+    }
+
+    // 4. Rating
+    const ratingText = $el.find(".rating-badge, .rating, .vote, .imdb").first().text().trim();
+    const rating = ratingText.replace(/[^0-9.]/g, "").trim();
+
     const isSerie = link.includes("/serie/");
 
     movies.push({
@@ -80,7 +115,6 @@ export class GetAll implements StrategyGetAllMovies {
       const html = await res.text();
       return parseMegadedeCatalog(html, pageNumber);
     } catch {
-      // If /search?s= fails on certain ToroVid mirrors, fallback to /?s=
       if (search && search.trim() !== "") {
         try {
           const fallbackEndpoint = `/?s=${encodeURIComponent(search.trim())}&page=${pageNumber}`;

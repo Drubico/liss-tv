@@ -8,33 +8,51 @@ export function parseMegadedeDetail(
 ): Omit<StoredMovie, "link" | "updatedAt"> | undefined {
   const $ = cheerio.load(html);
 
-  const title =
-    $("h1.title, .entry-title, meta[property='og:title']").first().attr("content") ||
-    $("h1.title, .entry-title").first().text().trim();
+  let title = $("h1.title, .entry-title, h1").first().text().trim();
+  if (!title) {
+    const ogTitle = $("meta[property='og:title']").attr("content");
+    if (ogTitle) {
+      title = ogTitle
+        .replace(/^Ver\s+/i, "")
+        .replace(/\s*\(\d{4}\).*$/i, "")
+        .replace(/\s*online.*$/i, "")
+        .replace(/\s*-\s*megadede.*$/i, "")
+        .trim();
+    }
+  }
 
   if (!title) return undefined;
 
   const cleanTitle = title.replace(/\s*\(\d{4}\)$/, "").trim();
 
-  let image =
-    $(".poster img, figure img").attr("src") ||
-    $("meta[property='og:image']").attr("content") ||
-    "";
+  const poster = $(".poster img, figure img").attr("src") || "";
+  const ogImage = $("meta[property='og:image']").attr("content") || "";
+  const backdrop = $(".backdrop img, .cover img").attr("src") || "";
+
+  let image = poster || ogImage || "";
   if (image.startsWith("//")) image = `https:${image}`;
 
-  let backgroundImage =
-    $("meta[property='og:image']").attr("content") ||
-    $(".backdrop img, .cover img").attr("src") ||
-    image;
+  let backgroundImage = backdrop || ogImage || image;
   if (backgroundImage.startsWith("//")) backgroundImage = `https:${backgroundImage}`;
 
-  const year = $(".year, .release-year, .date").first().text().trim();
-  const rating = $(".rating, .vote, .imdb").first().text().trim();
+  let year =
+    $("a[href*='/year/'], .year, .release-year, .date").first().text().replace(/[^0-9]/g, "").trim() ||
+    $(".movie-meta").text().match(/\b(19\d\d|20\d\d)\b/)?.[0] ||
+    "";
+
+  const ratingText = $(".rating-badge, .rating, .vote, .imdb").first().text().trim();
+  const rating = ratingText.replace(/[^0-9.]/g, "").trim();
+
   const duration = $(".duration, .runtime").first().text().trim();
-  const caption = $(".desc p, .description p, .entry-content p, .overview").first().text().trim();
+  const caption = $(
+    ".desc p, .description p, .entry-content p, .overview, .description, .desc"
+  )
+    .first()
+    .text()
+    .trim();
 
   const tags: string[] = [];
-  $(".genres a, .genre a, a[href*='/genero/']").each((_, el) => {
+  $(".genres a, .genre a, a[href*='/genero/'], a[href*='/generos/']").each((_, el) => {
     const genre = $(el).text().trim();
     if (genre && !tags.includes(genre)) tags.push(genre);
   });

@@ -36,6 +36,33 @@ const SAMPLE_CATALOG_HTML = `
 </html>
 `;
 
+test("parseMegadedeCatalog ignores 'Ver contenido' links and extracts true title, year, rating from card header", () => {
+  const realCardHtml = `
+    <article class="mv v por">
+      <figure class="im brd1">
+        <img src="https://image.tmdb.org/t/p/w300/kq5RJr8i0V2Jt8tyGV82mn0BZDc.jpg" alt="Peleas a domicilio" />
+        <a href="/pelicula/peleas-a-domicilio-fx2PQs" class="lnk-blk" aria-label="Peleas a domicilio">
+          <span class="dn">Ver contenido</span>
+        </a>
+      </figure>
+      <header class="hd pdy1">
+        <h2 class="fz5 fw6 lh1 mab0">Peleas a domicilio</h2>
+        <span class="op6 db fz6">2026</span>
+        <span class="rating-badge">⭐ 5</span>
+      </header>
+    </article>
+  `;
+
+  const result = parseMegadedeCatalog(realCardHtml, 1);
+  assert.strictEqual(result.movies.length, 1);
+  const movie = result.movies[0];
+  assert.strictEqual(movie.title, "Peleas a domicilio");
+  assert.strictEqual(movie.year, "2026");
+  assert.strictEqual(movie.rating, "5");
+  assert.strictEqual(movie.link, "/pelicula/peleas-a-domicilio-fx2PQs");
+  assert.strictEqual(movie.image, "https://image.tmdb.org/t/p/w300/kq5RJr8i0V2Jt8tyGV82mn0BZDc.jpg");
+});
+
 test("parseMegadedeCatalog parses movies, series and pagination flags", () => {
   const result = parseMegadedeCatalog(SAMPLE_CATALOG_HTML, 1);
   assert.strictEqual(result.movies.length, 2);

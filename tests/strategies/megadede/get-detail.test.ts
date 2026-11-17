@@ -67,6 +67,49 @@ const SAMPLE_SERIE_DETAIL_HTML = `
 </html>
 `;
 
+test("parseMegadedeDetail correctly parses real Megadede markup with movie-meta and rating-badge", () => {
+  const realDetailHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta property="og:title" content="Ver Peleas a domicilio (2026) Online - Megadede" />
+      <meta property="og:image" content="https://image.tmdb.org/t/p/w300/kq5RJr8i0V2Jt8tyGV82mn0BZDc.jpg" />
+    </head>
+    <body>
+      <div class="movie-info" id="item-context" data-type="pelicula">
+        <h1>Peleas a domicilio</h1>
+        <div class="movie-meta">
+          <a href="/year/2026">📅 Año: 2026</a>
+          <span class="rating-badge">⭐ 5</span>
+        </div>
+        <div class="description">
+          Naim es un hombre encantador en el día a día, aunque se transforma en una verdadera fiera cuando alguien lo provoca.
+        </div>
+        <div class="genres">
+          <a href="/generos/accion">Acción</a>
+          <a href="/generos/aventura">Aventura</a>
+          <a href="/generos/comedia">Comedia</a>
+        </div>
+        <button class="server-btn active" onclick="changeServer('/vidurl/tt34724686/', this)">Embed</button>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const detail = parseMegadedeDetail(realDetailHtml, "/pelicula/peleas-a-domicilio-fx2PQs");
+  assert(detail !== undefined);
+  assert.strictEqual(detail.title, "Peleas a domicilio");
+  assert.strictEqual(detail.year, "2026");
+  assert.strictEqual(detail.rating, "5");
+  assert.strictEqual(
+    detail.caption,
+    "Naim es un hombre encantador en el día a día, aunque se transforma en una verdadera fiera cuando alguien lo provoca."
+  );
+  assert.deepStrictEqual(detail.tags, ["Acción", "Aventura", "Comedia"]);
+  assert.strictEqual(detail.image, "https://image.tmdb.org/t/p/w300/kq5RJr8i0V2Jt8tyGV82mn0BZDc.jpg");
+  assert.strictEqual(detail.movieUrl, "/vidurl/tt34724686/");
+});
+
 test("parseMegadedeDetail correctly parses movie details and vidurl", () => {
   const detail = parseMegadedeDetail(SAMPLE_MOVIE_DETAIL_HTML, "/pelicula/peleas-a-domicilio-fx2PQs");
   assert(detail !== undefined);
