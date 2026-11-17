@@ -92,7 +92,6 @@ export default function MobileAndDeskPlayer({
           viewType="video"
           streamType="on-demand"
           logLevel="warn"
-          crossOrigin="anonymous"
           playsInline
           title={title}
           poster={poster}

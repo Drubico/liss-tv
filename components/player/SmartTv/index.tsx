@@ -325,7 +325,6 @@ export default function SmartTvPlayer({
         viewType="video"
         streamType="on-demand"
         logLevel="warn"
-        crossOrigin="anonymous"
         playsInline
         title={title}
         poster={poster}
