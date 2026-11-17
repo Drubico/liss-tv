@@ -316,6 +316,7 @@ export default function SmartTvPlayer({
       {/* Video */}
       <MediaPlayer
         key={src}
+        load="eager"
         src={{
           src,
           type: src.includes("m3u8") ? "application/x-mpegurl" : "video/mp4",
@@ -324,7 +325,7 @@ export default function SmartTvPlayer({
         viewType="video"
         streamType="on-demand"
         logLevel="warn"
-        crossOrigin
+        crossOrigin="anonymous"
         playsInline
         title={title}
         poster={poster}

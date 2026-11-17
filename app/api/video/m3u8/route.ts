@@ -54,9 +54,11 @@ export async function GET(req: NextRequest) {
   }
 
   const isManifestUrl = url.includes(".m3u8");
+  const refererParam = req.nextUrl.searchParams.get("referer");
+  const directSegmentsParam =
+    req.nextUrl.searchParams.get("directSegments") === "true";
 
   // Determine appropriate upstream referer header
-  const refererParam = req.nextUrl.searchParams.get("referer");
   let effectiveReferer = refererParam;
   if (!effectiveReferer) {
     try {
@@ -107,7 +109,11 @@ export async function GET(req: NextRequest) {
       const body = manifestRes.body;
       const origin = process.env.APP_URL;
       const appOrigin = origin || (req.nextUrl.origin.includes("0.0.0.0") ? "" : req.nextUrl.origin);
-      const rewrittenBody = rewriteManifest(body, url, appOrigin, effectiveReferer);
+      const rewrittenBody = rewriteManifest(body, url, {
+        baseOrigin: appOrigin,
+        directSegments: directSegmentsParam,
+        referer: effectiveReferer,
+      });
 
       // Si viene el pathParam, guardar la versión reescrita en MinIO en background y actualizar SQLite
       if (pathParam) {
@@ -183,7 +189,7 @@ export async function GET(req: NextRequest) {
     );
     headers.set("Access-Control-Allow-Origin", "*");
     headers.set("Access-Control-Allow-Headers", "Range");
-    headers.set("Cache-Control", "public, max-age=3600");
+    headers.set("Cache-Control", "public, max-age=86400, immutable");
     headers.set(
       "Access-Control-Expose-Headers",
       "Content-Range, Accept-Ranges",

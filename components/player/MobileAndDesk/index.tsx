@@ -83,6 +83,7 @@ export default function MobileAndDeskPlayer({
         <MediaPlayer
           key={src}
           autoPlay
+          load="eager"
           src={{
             src,
             type: src.includes("m3u8") ? "application/x-mpegurl" : "video/mp4",
@@ -91,7 +92,7 @@ export default function MobileAndDeskPlayer({
           viewType="video"
           streamType="on-demand"
           logLevel="warn"
-          crossOrigin
+          crossOrigin="anonymous"
           playsInline
           title={title}
           poster={poster}

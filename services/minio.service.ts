@@ -263,6 +263,9 @@ export async function saveManifestFromUpstream(
     opts.baseOrigin ||
     process.env.APP_URL ||
     process.env.NEXT_PUBLIC_APP_URL;
-  const rewritten = rewriteManifest(manifestRes.body, manifestUrl, origin);
+  const rewritten = rewriteManifest(manifestRes.body, manifestUrl, {
+    baseOrigin: origin,
+    referer: opts.referer,
+  });
   return await saveManifest(path, rewritten);
 }
