@@ -264,13 +264,15 @@ export default function ContinueWatchingPage() {
   const displayList = activeTab === "cloud" ? cloudList : localList;
 
   const handleCardClick = (item: ContinueWatching) => {
+    const cleanLink = item.link.replace(/\/player\/?$/i, "");
     const provider =
       item.provider ||
       (item.context?.provider as string | undefined) ||
-      inferProviderFromLink(item.link, item.context);
+      inferProviderFromLink(cleanLink, item.context);
 
     setMovieData({
       ...item,
+      link: cleanLink,
       provider,
       context: {
         ...item.context,
@@ -279,7 +281,7 @@ export default function ContinueWatchingPage() {
       startTime: item.currentTime,
     });
 
-    router.push(getPlayerHref(item.link));
+    router.push(getPlayerHref(cleanLink));
   };
 
   const handleRemove = async (

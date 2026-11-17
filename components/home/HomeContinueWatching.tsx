@@ -190,13 +190,15 @@ export function HomeContinueWatching() {
   }, [items]);
 
   const handlePlay = (item: ContinueWatching) => {
+    const cleanLink = item.link.replace(/\/player\/?$/i, "");
     const provider =
       item.provider ||
       (item.context?.provider as string | undefined) ||
-      inferProviderFromLink(item.link, item.context);
+      inferProviderFromLink(cleanLink, item.context);
 
     setMovieData({
       ...item,
+      link: cleanLink,
       provider,
       context: {
         ...item.context,
@@ -204,9 +206,9 @@ export function HomeContinueWatching() {
       },
       startTime: item.currentTime,
     });
-    analytics.watchVideo(item.title || item.link, item.link);
+    analytics.watchVideo(item.title || cleanLink, cleanLink);
 
-    const targetHref = getPlayerHref(item.link);
+    const targetHref = getPlayerHref(cleanLink);
     router.push(targetHref);
   };
 

@@ -78,13 +78,35 @@ export function PlayerView() {
           try {
             const details = await getDetails(cleanLink);
             if (details && !isCancelled) {
+              let targetLink = cleanLink;
+              let epContext = details.context;
+
+              if (typeof window !== "undefined") {
+                const searchParams = new URLSearchParams(window.location.search);
+                const sParam = searchParams.get("season");
+                const eParam = searchParams.get("episode");
+                const hash = window.location.hash;
+                const hashMatch = hash.match(/#s(\d+)-e(\d+)/i);
+                const season = sParam || hashMatch?.[1];
+                const episode = eParam || hashMatch?.[2];
+
+                if (season && episode) {
+                  targetLink = `${cleanLink}#s${season}-e${episode}`;
+                  epContext = {
+                    ...epContext,
+                    season: parseInt(season, 10),
+                    episode: parseInt(episode, 10),
+                  };
+                }
+              }
+
               const recoveredPreview: MoviePreview = {
                 title: details.title || "",
-                link: cleanLink,
+                link: targetLink,
                 image: details.image || "",
                 backgroundImage: details.backgroundImage,
                 provider: details.provider,
-                context: details.context,
+                context: epContext,
                 startTime: 0,
               };
               preview = recoveredPreview;

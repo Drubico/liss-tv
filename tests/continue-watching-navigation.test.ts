@@ -40,6 +40,7 @@ describe("Continue Watching Navigation & Provider Inference", () => {
       assert.equal(inferProviderFromLink("/serie/test", { provider: "megadede" }), "megadede");
       assert.equal(inferProviderFromLink("/pelicula/la-desaparicion-de-haruhi-suzu-3F2cYW"), "megadede");
       assert.equal(inferProviderFromLink("/serie/clase-letal-YT2vW1"), "megadede");
+      assert.equal(inferProviderFromLink("/serie/drake-y-josh#s3-e7"), "megadede");
     });
 
     it("should return undefined for generic links without context", () => {
@@ -88,6 +89,24 @@ describe("Continue Watching Navigation & Provider Inference", () => {
       assert.equal(
         getPlayerHref("/serie/lucifer?season=3&episode=4"),
         "/serie/lucifer/player?season=3&episode=4"
+      );
+    });
+
+    it("should map Megadede series episode with hash to player route with query params", () => {
+      assert.equal(
+        getPlayerHref("/serie/drake-y-josh#s3-e7"),
+        "/serie/drake-y-josh/player?season=3&episode=7"
+      );
+    });
+
+    it("should clean malformed player URLs that appended /player to the hash", () => {
+      assert.equal(
+        getPlayerHref("/serie/drake-y-josh#s3-e7/player"),
+        "/serie/drake-y-josh/player?season=3&episode=7"
+      );
+      assert.equal(
+        getPlayerHref("http://localhost:3000/serie/drake-y-josh#s3-e7/player"),
+        "/serie/drake-y-josh/player?season=3&episode=7"
       );
     });
 
