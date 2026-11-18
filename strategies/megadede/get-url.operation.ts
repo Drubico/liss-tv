@@ -84,12 +84,24 @@ export class GetUrl implements StrategyGetUrl {
         getServerPriority(b.servername || ""),
     );
 
-    const resolvedStreams: string[] = [];
+    interface ResolvedStream {
+      m3u8Url: string;
+      hosterReferer: string;
+    }
+
+    const resolvedStreams: ResolvedStream[] = [];
 
     for (const embed of prioritizedEmbeds) {
       try {
         const decryptedUrl = decryptAesLink(embed.link, challenge, salt);
         if (!decryptedUrl) continue;
+
+        let hosterReferer = "https://megadede.mobi/";
+        try {
+          hosterReferer = `${new URL(decryptedUrl).origin}/`;
+        } catch {
+          // Fall back to default megadede referer
+        }
 
         let m3u8Url: string | null = null;
         const server = embed.servername?.toLowerCase() || "";
@@ -103,7 +115,7 @@ export class GetUrl implements StrategyGetUrl {
         }
 
         if (m3u8Url) {
-          resolvedStreams.push(m3u8Url);
+          resolvedStreams.push({ m3u8Url, hosterReferer });
         }
       } catch {
         // Continue to next embed
@@ -114,17 +126,25 @@ export class GetUrl implements StrategyGetUrl {
       throw new MegadedeError(`[Megadede] Could not extract any playable HLS stream for ${path}`);
     }
 
-    const primaryM3u8 = resolvedStreams[0];
-    const secondaryM3u8 = resolvedStreams[1];
+    const primary = resolvedStreams[0];
+    const secondary = resolvedStreams[1];
 
-    const referer = encodeURIComponent("https://megadede.mobi/");
+    const primaryProxyUrl = `/api/video/m3u8?url=${encodeURIComponent(
+      primary.m3u8Url
+    )}&referer=${encodeURIComponent(primary.hosterReferer)}`;
+
+    const secondaryProxyUrl = secondary
+      ? `/api/video/m3u8?url=${encodeURIComponent(
+          secondary.m3u8Url
+        )}&referer=${encodeURIComponent(secondary.hosterReferer)}`
+      : undefined;
+
     return {
-      url: `/api/video/m3u8?url=${encodeURIComponent(primaryM3u8)}&referer=${referer}`,
-      fallbackUrl: secondaryM3u8
-        ? `/api/video/m3u8?url=${encodeURIComponent(secondaryM3u8)}&referer=${referer}`
-        : undefined,
+      url: primaryProxyUrl,
+      fallbackUrl: secondaryProxyUrl,
+      directSegments: false,
       headers: {
-        Referer: "https://megadede.mobi/",
+        Referer: primary.hosterReferer,
       },
     };
   }

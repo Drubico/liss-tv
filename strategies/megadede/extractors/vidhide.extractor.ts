@@ -4,7 +4,10 @@ export function unpackDeanEdwards(packedCode: string): string | null {
   );
   if (!match) return null;
 
-  let [, p, aStr, cStr, kStr] = match;
+  let p = match[1];
+  const aStr = match[2];
+  const cStr = match[3];
+  const kStr = match[4];
   const a = parseInt(aStr, 10);
   let c = parseInt(cStr, 10);
   const dict = kStr.split("|");

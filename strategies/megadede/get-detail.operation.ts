@@ -103,7 +103,7 @@ export function parseMegadedeDetail(
     backgroundImage = image;
   }
 
-  let year =
+  const year =
     $("a[href*='/year/'], .year, .release-year, .date").first().text().replace(/[^0-9]/g, "").trim() ||
     $(".movie-meta").text().match(/\b(19\d\d|20\d\d)\b/)?.[0] ||
     "";

@@ -76,8 +76,9 @@ test("GetUrl resolves stream and formats proxy URL for Vidstack", async (t) => {
   assert(result.url?.includes("/api/video/m3u8?url="));
   assert(result.url?.includes("&referer="));
   assert(result.url?.includes(encodeURIComponent("https://cdn.video.com/hls/master.m3u8")));
-  assert(result.url?.includes("&referer="));
-  assert.strictEqual(result.headers?.Referer, "https://megadede.mobi/");
+  assert(result.url?.includes(`referer=${encodeURIComponent("https://morencius.com/")}`));
+  assert.strictEqual(result.directSegments, false);
+  assert.strictEqual(result.headers?.Referer, "https://morencius.com/");
 });
 
 test("GetUrl resolves series episode via /api/episodio/", async (t) => {
@@ -200,6 +201,10 @@ test("GetUrl prioritizes VOE and Streamwish over Vidhide", async (t) => {
 
   // VOE should be prioritized first
   assert(result.url?.includes(encodeURIComponent("https://cdn.voe.sx/master.m3u8")));
+  assert(result.url?.includes(`referer=${encodeURIComponent("https://voe.sx/")}`));
   // Streamwish should be the fallback before Vidhide
   assert(result.fallbackUrl?.includes(encodeURIComponent("https://cdn.streamwish.com/master.m3u8")));
+  assert(result.fallbackUrl?.includes(`referer=${encodeURIComponent("https://hglink.to/")}`));
+  assert.strictEqual(result.headers?.Referer, "https://voe.sx/");
+  assert.strictEqual(result.directSegments, false);
 });
