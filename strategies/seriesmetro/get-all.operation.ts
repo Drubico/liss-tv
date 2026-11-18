@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import type { MediaItem, Movies, StrategyGetAllMovies } from "@/types/movie";
+import { upsert } from "@/services/movie.store";
 import { seriesmetroFetch } from "./client";
 
 export function parseSeriesmetroCatalog(html: string, currentPage = 1): Movies {
@@ -79,6 +80,10 @@ export function parseSeriesmetroCatalog(html: string, currentPage = 1): Movies {
       rating: rating || "",
       type: mediaType,
       provider: "seriesmetro",
+      context: {
+        provider: "seriesmetro",
+        slug: cleanSlug,
+      },
     });
   });
 
@@ -138,6 +143,27 @@ export class GetAll implements StrategyGetAllMovies {
 
     const res = await this.fetchFn(targetEndpoint);
     const html = await res.text();
-    return parseSeriesmetroCatalog(html, page);
+    const result = parseSeriesmetroCatalog(html, page);
+
+    for (const m of result.movies) {
+      if (m.link) {
+        const cleanLink = m.link.replace(/\/+$/, "");
+        const payload = {
+          title: m.title,
+          image: m.image,
+          rating: m.rating,
+          year: m.year,
+          type: m.type,
+          provider: "seriesmetro",
+          context: m.context,
+        };
+        upsert("seriesmetro", cleanLink, payload);
+        if (m.link !== cleanLink) {
+          upsert("seriesmetro", m.link, payload);
+        }
+      }
+    }
+
+    return result;
   }
 }

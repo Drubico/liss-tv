@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert";
+import { get, getAny } from "../../../services/movie.store.ts";
 import { GetAll } from "../../../strategies/seriesmetro/get-all.operation.ts";
 
 test("GetAll parses movie and series items with correct type disambiguation", async () => {
@@ -57,6 +58,16 @@ test("GetAll parses movie and series items with correct type disambiguation", as
   assert.strictEqual(serie.type, "serie");
   assert.strictEqual(serie.link, "/serie/age-of-the-living-dead/");
   assert.strictEqual(serie.provider, "seriesmetro");
+
+  // Verify that movies are persisted to movie_cache so getAny resolves seriesmetro directly
+  const cachedMovie = get("seriesmetro", "/pelicula/scream-3-la-mascara-de-la-muerte");
+  assert(cachedMovie !== undefined);
+  assert.strictEqual(cachedMovie.title, "Scream 3");
+  assert.strictEqual(cachedMovie.provider, "seriesmetro");
+
+  const anyMatch = getAny("pelicula/scream-3-la-mascara-de-la-muerte");
+  assert(anyMatch !== undefined);
+  assert.strictEqual(anyMatch.provider, "seriesmetro");
 });
 
 test("GetAll constructs correct URLs for pagination, series, and search", async () => {
