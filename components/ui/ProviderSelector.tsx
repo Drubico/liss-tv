@@ -53,6 +53,7 @@ export function ProviderSelector({
 
   const [providers, setProviders] = useState<ProviderOption[]>([
     buildProviderOption({ id: "megadede", name: "Megadede" }),
+    buildProviderOption({ id: "seriesmetro", name: "SeriesMetro" }),
     buildProviderOption({ id: "gnula", name: "Gnula HD" }),
     buildProviderOption({ id: "serieslan", name: "SeriesLan" }),
     buildProviderOption({ id: "solo-latino", name: "Solo Latino" }),
@@ -72,6 +73,7 @@ export function ProviderSelector({
               ? available.map(buildProviderOption)
               : [
                   buildProviderOption({ id: "megadede", name: "Megadede" }),
+                  buildProviderOption({ id: "seriesmetro", name: "SeriesMetro" }),
                   buildProviderOption({ id: "gnula", name: "Gnula HD" }),
                   buildProviderOption({ id: "serieslan", name: "SeriesLan" }),
                   buildProviderOption({ id: "solo-latino", name: "Solo Latino" }),
