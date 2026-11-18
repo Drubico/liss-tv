@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import type { Episode, Season, StoredMovie, StrategyGetMovieDetails } from "@/types/movie";
-import { seriesmetroFetch } from "./client";
+import { seriesmetroFetch, SERIESMETRO_BASE_URL } from "./client";
 
 function isValidImageUrl(url?: string): boolean {
   if (!url || typeof url !== "string") return false;
@@ -18,9 +18,138 @@ function isValidImageUrl(url?: string): boolean {
   return true;
 }
 
+function parseEpisodesFromCheerio(
+  $: cheerio.CheerioAPI,
+  defaultPoster: string,
+  cleanSlug: string,
+  targetSeasonNum?: number
+): Array<{ season: number; episode: Episode }> {
+  const episodes: Array<{ season: number; episode: Episode }> = [];
+
+  const processArticle = ($el: ReturnType<cheerio.CheerioAPI>) => {
+    const linkEl = $el.find("a[href*='/capitulo/']").first();
+    const href = linkEl.attr("href") || ($el.is("a[href*='/capitulo/']") ? $el.attr("href") : "");
+    if (!href || !href.includes("/capitulo/")) return;
+
+    const numEpiText = $el.find(".num-epi").text().trim();
+    const numMatch = numEpiText.match(/(\d+)x(\d+)/i);
+    const hrefMatch = href.match(/temporada-(\d+)-capitulo-(\d+)/i);
+
+    let season = targetSeasonNum || 1;
+    let epNum = "1";
+
+    if (numMatch) {
+      season = parseInt(numMatch[1], 10);
+      epNum = numMatch[2];
+    } else if (hrefMatch) {
+      season = parseInt(hrefMatch[1], 10);
+      epNum = hrefMatch[2];
+    }
+
+    let epTitle = $el.find(".entry-title, h2, h3, .title").first().text().trim();
+    if (!epTitle) {
+      epTitle = `Episodio ${epNum}`;
+    }
+
+    let epImg =
+      $el.find(".post-thumbnail img, figure img, img").first().attr("data-src") ||
+      $el.find(".post-thumbnail img, figure img, img").first().attr("src") ||
+      defaultPoster;
+    if (epImg.startsWith("//")) {
+      epImg = `https:${epImg}`;
+    }
+
+    const cleanEpHref = href.startsWith("http")
+      ? new URL(href).pathname
+      : href.startsWith("/")
+      ? href
+      : `/${href}`;
+
+    episodes.push({
+      season,
+      episode: {
+        numberEpisode: epNum,
+        title: epTitle,
+        image: epImg,
+        caption: "",
+        link: cleanEpHref,
+        context: {
+          season,
+          episode: parseInt(epNum, 10),
+          slug: cleanSlug,
+          provider: "seriesmetro",
+        },
+      },
+    });
+  };
+
+  const containers = $(
+    "#episode_by_temp article, ul#episode_by_temp li, article.episodes, article[class*='episodes']"
+  );
+
+  if (containers.length > 0) {
+    containers.each((_, el) => {
+      processArticle($(el));
+    });
+  }
+
+  // Fallback: direct a[href*='/capitulo/'] if no containers were found
+  if (episodes.length === 0) {
+    $("a[href*='/capitulo/']").each((_, el) => {
+      const $el = $(el);
+      const epHref = $el.attr("href") || "";
+      if (!epHref || !epHref.includes("/capitulo/")) return;
+
+      const match =
+        epHref.match(/temporada-(\d+)-capitulo-(\d+)/i) ||
+        $el.text().match(/(\d+)x(\d+)/i) ||
+        $el.text().match(/T(\d+)\s*E(\d+)/i);
+
+      let seasonNum = targetSeasonNum || 1;
+      let epNum = "1";
+
+      if (match) {
+        seasonNum = parseInt(match[1], 10) || 1;
+        epNum = match[2];
+      }
+
+      const epTitle =
+        $el.find(".title, .ep-title, p").first().text().trim() ||
+        $el.text().trim() ||
+        `Episodio ${epNum}`;
+
+      const cleanEpHref = epHref.startsWith("http")
+        ? new URL(epHref).pathname
+        : epHref.startsWith("/")
+        ? epHref
+        : `/${epHref}`;
+
+      episodes.push({
+        season: seasonNum,
+        episode: {
+          numberEpisode: epNum,
+          title: epTitle,
+          image: defaultPoster,
+          caption: "",
+          link: cleanEpHref,
+          context: {
+            season: seasonNum,
+            episode: parseInt(epNum, 10),
+            slug: cleanSlug,
+            provider: "seriesmetro",
+          },
+        },
+      });
+    });
+  }
+
+  return episodes;
+}
+
 export function parseSeriesmetroDetail(
   html: string,
-  link: string
+  link: string,
+  extraSeasonsHtml: string[] = []
 ): Omit<StoredMovie, "link" | "updatedAt"> | undefined {
   const $ = cheerio.load(html);
 
@@ -116,7 +245,7 @@ export function parseSeriesmetroDetail(
 
   const isSerie =
     cleanLink.includes("/serie/") ||
-    $(".seasons, .season-list, a[href*='/capitulo/']").length > 0;
+    $(".seasons, .choose-season, .season-list, a[href*='/capitulo/']").length > 0;
 
   // 5. Server embed options (for movies)
   const embeds: Array<{ index: number; language: string; url: string }> = [];
@@ -157,56 +286,33 @@ export function parseSeriesmetroDetail(
   const seasonsMap: Map<number, Episode[]> = new Map();
 
   if (isSerie) {
-    $("a[href*='/capitulo/']").each((_, el) => {
-      const $el = $(el);
-      const epHref = $el.attr("href") || "";
-      if (!epHref) return;
-
-      const match =
-        epHref.match(/temporada-(\d+)-capitulo-(\d+)/i) ||
-        $el.text().match(/(\d+)x(\d+)/i) ||
-        $el.text().match(/T(\d+)\s*E(\d+)/i);
-
-      let seasonNum = 1;
-      let epNum = "1";
-
-      if (match) {
-        seasonNum = parseInt(match[1], 10) || 1;
-        epNum = match[2];
+    // 6.1 Parse initial HTML episodes
+    const initialEpisodes = parseEpisodesFromCheerio($, poster, cleanSlug);
+    for (const { season, episode } of initialEpisodes) {
+      if (!seasonsMap.has(season)) {
+        seasonsMap.set(season, []);
       }
-
-      const epTitle =
-        $el.find(".title, .ep-title, p").first().text().trim() ||
-        $el.text().trim() ||
-        `Episodio ${epNum}`;
-
-      const cleanEpHref = epHref.startsWith("http")
-        ? new URL(epHref).pathname
-        : epHref.startsWith("/")
-        ? epHref
-        : `/${epHref}`;
-
-      if (!seasonsMap.has(seasonNum)) {
-        seasonsMap.set(seasonNum, []);
+      const list = seasonsMap.get(season)!;
+      if (!list.some((e) => e.numberEpisode === episode.numberEpisode)) {
+        list.push(episode);
       }
+    }
 
-      const existingList = seasonsMap.get(seasonNum)!;
-      if (!existingList.some((e) => e.numberEpisode === epNum)) {
-        existingList.push({
-          numberEpisode: epNum,
-          title: epTitle,
-          image: poster,
-          caption: "",
-          link: cleanEpHref,
-          context: {
-            season: seasonNum,
-            episode: parseInt(epNum, 10),
-            slug: cleanSlug,
-            provider: "seriesmetro",
-          },
-        });
+    // 6.2 Parse extra seasons HTML (from AJAX)
+    for (const extraHtml of extraSeasonsHtml) {
+      if (!extraHtml || extraHtml.trim() === "") continue;
+      const $extra = cheerio.load(extraHtml);
+      const extraEpisodes = parseEpisodesFromCheerio($extra, poster, cleanSlug);
+      for (const { season, episode } of extraEpisodes) {
+        if (!seasonsMap.has(season)) {
+          seasonsMap.set(season, []);
+        }
+        const list = seasonsMap.get(season)!;
+        if (!list.some((e) => e.numberEpisode === episode.numberEpisode)) {
+          list.push(episode);
+        }
       }
-    });
+    }
   }
 
   const episodes: Season[] = Array.from(seasonsMap.entries())
@@ -248,6 +354,67 @@ export class GetDetail implements StrategyGetMovieDetails {
   async operation(link: string): Promise<Omit<StoredMovie, "link" | "updatedAt"> | undefined> {
     const res = await this.fetchFn(link);
     const html = await res.text();
-    return parseSeriesmetroDetail(html, link);
+    const $ = cheerio.load(html);
+
+    const cleanLink = link.startsWith("http")
+      ? new URL(link).pathname
+      : link.startsWith("/")
+      ? link
+      : `/${link}`;
+
+    const isSerie =
+      cleanLink.includes("/serie/") ||
+      $(".seasons, .choose-season, .season-list, a[href*='/capitulo/']").length > 0;
+
+    const extraSeasonsHtml: string[] = [];
+
+    if (isSerie) {
+      const extraSeasons: Array<{ season: number; post: string }> = [];
+      $(".choose-season .sel-temp a, .choose-season a[data-season]").each((_, el) => {
+        const sStr = $(el).attr("data-season");
+        const pStr = $(el).attr("data-post");
+        if (sStr && pStr) {
+          const sNum = parseInt(sStr, 10);
+          if (sNum > 1 && !extraSeasons.some((x) => x.season === sNum)) {
+            extraSeasons.push({ season: sNum, post: pStr });
+          }
+        }
+      });
+
+      if (extraSeasons.length > 0) {
+        const fullReferer = link.startsWith("http")
+          ? link
+          : `${SERIESMETRO_BASE_URL}${cleanLink}`;
+
+        const settled = await Promise.allSettled(
+          extraSeasons.map(async ({ season, post }) => {
+            const params = new URLSearchParams();
+            params.append("action", "action_select_season");
+            params.append("season", String(season));
+            params.append("post", post);
+
+            const ajaxRes = await this.fetchFn("wp-admin/admin-ajax.php", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                "X-Requested-With": "XMLHttpRequest",
+                Referer: fullReferer,
+              },
+              body: params.toString(),
+            });
+
+            return ajaxRes.text();
+          })
+        );
+
+        for (const r of settled) {
+          if (r.status === "fulfilled" && r.value) {
+            extraSeasonsHtml.push(r.value);
+          }
+        }
+      }
+    }
+
+    return parseSeriesmetroDetail(html, link, extraSeasonsHtml);
   }
 }
