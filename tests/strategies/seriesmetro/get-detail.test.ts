@@ -73,3 +73,75 @@ test("GetDetail parses series seasons and episodes", async () => {
   assert.strictEqual(ep1.numberEpisode, "1");
   assert(ep1.link.includes("/capitulo/age-of-the-living-dead-temporada-1-capitulo-1/"));
 });
+
+test("GetDetail fetches and parses multiple seasons via AJAX in series", async () => {
+  const seriesMainHtml = `
+    <h1 class="entry-title">Breaking Bad</h1>
+    <div class="description"><p>A chemistry teacher...</p></div>
+    <div class="post-thumbnail"><img src="https://image.tmdb.org/t/p/w500/bb.jpg" /></div>
+    <div class="seasons">
+      <div class="aa-drp choose-season">
+        <ul class="aa-cnt sub-menu">
+          <li class="sel-temp"><a data-post="10456" data-season="1">Season 1</a></li>
+          <li class="sel-temp"><a data-post="10456" data-season="2">Season 2</a></li>
+        </ul>
+      </div>
+      <div id="episode_by_temp">
+        <article class="post dfx fcl episodes">
+          <div class="post-thumbnail"><figure><img src="//image.tmdb.org/t/p/w185/ep1.jpg" /></figure></div>
+          <header class="entry-header">
+            <span class="num-epi">1x1</span>
+            <h2 class="entry-title">Piloto</h2>
+          </header>
+          <a href="https://www3.seriesmetro.net/capitulo/breaking-bad-temporada-1-capitulo-1/" class="lnk-blk"></a>
+        </article>
+      </div>
+    </div>
+  `;
+
+  const season2AjaxHtml = `
+    <li>
+      <article class="post dfx fcl episodes">
+        <div class="post-thumbnail"><figure><img src="//image.tmdb.org/t/p/w185/ep2_1.jpg" /></figure></div>
+        <header class="entry-header">
+          <span class="num-epi">2x1</span>
+          <h2 class="entry-title">Siete Treinta y Siete</h2>
+        </header>
+        <a href="https://www3.seriesmetro.net/capitulo/breaking-bad-temporada-2-capitulo-1/" class="lnk-blk"></a>
+      </article>
+    </li>
+  `;
+
+  const mockFetch = async (url: string | URL | Request, init?: RequestInit) => {
+    const urlStr = String(url);
+    if (urlStr.includes("admin-ajax.php")) {
+      const body = String(init?.body || "");
+      if (body.includes("season=2")) {
+        return new Response(season2AjaxHtml, { status: 200 });
+      }
+      return new Response("", { status: 200 });
+    }
+    return new Response(seriesMainHtml, { status: 200 });
+  };
+
+  const getDetail = new GetDetail(mockFetch as unknown as typeof fetch);
+  const detail = await getDetail.operation("/serie/breaking-bad/");
+
+  assert(detail !== undefined);
+  assert.strictEqual(detail.title, "Breaking Bad");
+  assert.strictEqual(detail.type, "serie");
+  assert(detail.episodes && detail.episodes.length === 2, `Expected 2 seasons, got ${detail?.episodes?.length}`);
+
+  const [s1, s2] = detail.episodes;
+  assert.strictEqual(s1.season, "1");
+  assert.strictEqual(s1.episodes.length, 1);
+  assert.strictEqual(s1.episodes[0].numberEpisode, "1");
+  assert.strictEqual(s1.episodes[0].title, "Piloto");
+  assert.strictEqual(s1.episodes[0].image, "https://image.tmdb.org/t/p/w185/ep1.jpg");
+
+  assert.strictEqual(s2.season, "2");
+  assert.strictEqual(s2.episodes.length, 1);
+  assert.strictEqual(s2.episodes[0].numberEpisode, "1");
+  assert.strictEqual(s2.episodes[0].title, "Siete Treinta y Siete");
+  assert.strictEqual(s2.episodes[0].image, "https://image.tmdb.org/t/p/w185/ep2_1.jpg");
+});
