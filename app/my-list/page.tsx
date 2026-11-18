@@ -9,6 +9,7 @@ import FocusContextProvider from "@/components/providers/FocusContextProvider";
 import FocusElementProvider from "@/components/providers/FocusElementProvider";
 import { useFavoritesStore, FavoriteItem } from "@/store/useFavoritesStore";
 import { useAuthentication } from "@/components/providers/context/AuthContext";
+import { formatFavoriteHref } from "@/utils/navigation";
 import { Trash2, Star, Play } from "lucide-react";
 
 const emptySubscribe = () => () => {};
@@ -22,7 +23,7 @@ function FavoriteCard({
 }) {
   const router = useRouter();
   const rating = item.rating?.replace(/★/, "").trim();
-  const href = item.link.startsWith("/") ? item.link : `/${item.link}`;
+  const href = formatFavoriteHref(item);
 
   return (
     <FocusElementProvider

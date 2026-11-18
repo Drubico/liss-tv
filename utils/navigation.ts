@@ -94,3 +94,10 @@ export function getPlayerHref(link: string): string {
 
   return `/${parts.slice(0, 2).join("/")}/player${querySuffix}`;
 }
+
+export function formatFavoriteHref(item: { link: string; provider?: string }): string {
+  const baseHref = item.link.startsWith("/") ? item.link : `/${item.link}`;
+  if (!item.provider) return baseHref;
+  const separator = baseHref.includes("?") ? "&" : "?";
+  return `${baseHref}${separator}provider=${encodeURIComponent(item.provider)}`;
+}
