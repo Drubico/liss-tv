@@ -200,6 +200,7 @@ export function HeroBackdrop({
                     caption,
                     tags,
                     type: isSerie ? "serie" : "movie",
+                    provider,
                   }}
                 />
               </div>

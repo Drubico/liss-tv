@@ -6,11 +6,14 @@ import { getDetails } from "@/app/actions/movie";
 
 export default async function SerieDetailPage({
   params,
+  searchParams,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ provider?: string }>;
 }) {
   const { slug } = await params;
-  const movie = await getDetails(`serie/${slug}`);
+  const { provider } = (await searchParams) || {};
+  const movie = await getDetails(`serie/${slug}`, provider);
 
   if (!movie) {
     return (
