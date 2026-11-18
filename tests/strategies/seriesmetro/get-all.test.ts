@@ -38,7 +38,7 @@ test("GetAll parses movie and series items with correct type disambiguation", as
   };
   const getAll = new GetAll(mockFetch as unknown as typeof fetch);
 
-  const result = await getAll.operation({ page: 1, filter: "movies" });
+  const result = await getAll.operation(undefined, "movies", 1);
   assert(result !== undefined);
   assert(requestedUrl.includes("/cartelera-peliculas/"));
   assert.strictEqual(result.movies.length, 2);
@@ -48,14 +48,14 @@ test("GetAll parses movie and series items with correct type disambiguation", as
   assert.strictEqual(movie.title, "Scream 3");
   assert.strictEqual(movie.year, "2000");
   assert.strictEqual(movie.type, "movie");
-  assert.strictEqual(movie.url, "/pelicula/scream-3-la-mascara-de-la-muerte/");
+  assert.strictEqual(movie.link, "/pelicula/scream-3-la-mascara-de-la-muerte/");
   assert.strictEqual(movie.provider, "seriesmetro");
 
   const serie = result.movies[1];
   assert.strictEqual(serie.id, "age-of-the-living-dead");
   assert.strictEqual(serie.title, "Age of the Living Dead");
   assert.strictEqual(serie.type, "serie");
-  assert.strictEqual(serie.url, "/serie/age-of-the-living-dead/");
+  assert.strictEqual(serie.link, "/serie/age-of-the-living-dead/");
   assert.strictEqual(serie.provider, "seriesmetro");
 });
 
@@ -68,15 +68,15 @@ test("GetAll constructs correct URLs for pagination, series, and search", async 
 
   const getAll = new GetAll(mockFetch as unknown as typeof fetch);
 
-  await getAll.operation({ page: 2, filter: "movies" });
+  await getAll.operation(undefined, "movies", 2);
   assert(urlsCalled[0].includes("/cartelera-peliculas/page/2/"));
 
-  await getAll.operation({ page: 1, filter: "series" });
+  await getAll.operation(undefined, "series", 1);
   assert(urlsCalled[1].includes("/cartelera-series/"));
 
-  await getAll.operation({ page: 3, filter: "series" });
+  await getAll.operation(undefined, "series", 3);
   assert(urlsCalled[2].includes("/cartelera-series/page/3/"));
 
-  await getAll.operation({ search: "batman" });
+  await getAll.operation("batman");
   assert(urlsCalled[3].includes("/?s=batman"));
 });

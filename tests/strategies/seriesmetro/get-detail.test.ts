@@ -26,7 +26,7 @@ test("GetDetail parses movie synopsis and embed context", async () => {
   assert(detail !== undefined);
   assert.strictEqual(detail.title, "Scream 3");
   assert.strictEqual(detail.type, "movie");
-  assert(detail.synopsis?.includes("Sidney Prescott"));
+  assert(detail.caption?.includes("Sidney Prescott"));
   assert.strictEqual(detail.image, "https://image.tmdb.org/t/p/w500/poster.jpg");
   assert.strictEqual(detail.provider, "seriesmetro");
   assert(Array.isArray(detail.context?.embeds));
@@ -58,7 +58,7 @@ test("GetDetail parses series seasons and episodes", async () => {
   assert(detail.episodes && detail.episodes.length > 0);
 
   const s1 = detail.episodes[0];
-  assert.strictEqual(s1.season, 1);
+  assert.strictEqual(s1.season, "1");
   assert.strictEqual(s1.episodes.length, 2);
 
   const ep1 = s1.episodes[0];

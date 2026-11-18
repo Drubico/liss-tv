@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import type { DriverQuery, MediaItem, Movies, StrategyGetAllMovies } from "@/types/movie";
+import type { MediaItem, Movies, StrategyGetAllMovies } from "@/types/movie";
 import { seriesmetroFetch } from "./client";
 
 export function parseSeriesmetroCatalog(html: string, currentPage = 1): Movies {
@@ -73,10 +73,10 @@ export function parseSeriesmetroCatalog(html: string, currentPage = 1): Movies {
     movies.push({
       id: cleanSlug || url,
       title: rawTitle,
-      url,
+      link: url,
       image,
-      year: year || undefined,
-      rating: rating || undefined,
+      year: year || "",
+      rating: rating || "",
       type: mediaType,
       provider: "seriesmetro",
     });
@@ -94,18 +94,11 @@ export function parseSeriesmetroCatalog(html: string, currentPage = 1): Movies {
   const hasNext =
     $(".pagination .next, .pagination a.next").length > 0 ||
     totalPages > currentPage;
-  const hasPrev = currentPage > 1;
 
   return {
     movies,
-    pagination: {
-      page: currentPage,
-      limit: movies.length || 24,
-      total: totalPages * (movies.length || 24),
-      totalPages,
-      hasNext,
-      hasPrev,
-    },
+    lastPageNumber: totalPages,
+    hasMore: hasNext,
   };
 }
 
@@ -116,23 +109,27 @@ export class GetAll implements StrategyGetAllMovies {
     this.fetchFn = fetchFn;
   }
 
-  async operation(query?: DriverQuery): Promise<Movies | undefined> {
-    const page = query?.page || 1;
+  async operation(
+    search?: string,
+    slug?: string,
+    pageNumber: number = 1
+  ): Promise<Movies | undefined> {
+    const page = pageNumber || 1;
     let targetEndpoint: string;
 
-    if (query?.search) {
-      const searchParam = encodeURIComponent(query.search.trim());
+    if (search) {
+      const searchParam = encodeURIComponent(search.trim());
       targetEndpoint =
         page > 1
           ? `/?s=${searchParam}&page=${page}`
           : `/?s=${searchParam}`;
-    } else if (query?.filter === "series") {
+    } else if (slug === "series" || slug === "serie") {
       targetEndpoint =
         page > 1
           ? `/cartelera-series/page/${page}/`
           : `/cartelera-series/`;
     } else {
-      // Default or "movies" / "movie"
+      // Default or "movies" / "movie" / "pelicula"
       targetEndpoint =
         page > 1
           ? `/cartelera-peliculas/page/${page}/`

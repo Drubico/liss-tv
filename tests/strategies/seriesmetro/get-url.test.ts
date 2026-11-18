@@ -50,13 +50,14 @@ test("GetUrl resolves trembed iframe and formats directSegments proxy URL", asyn
   const getUrl = new GetUrl(mockFetch, mockExtractor);
   const result = await getUrl.operation("/pelicula/scream-3-la-mascara-de-la-muerte/");
 
+  assert(result.url);
   assert(result.url.startsWith("/api/video/m3u8?url="));
   assert(result.url.includes("directSegments=true"));
   assert(result.url.includes("referer=https%3A%2F%2Ffastream.to%2F"));
   assert(result.url.includes("tokLatino"));
   assert.strictEqual(result.headers?.Referer, "https://fastream.to/");
 
-  assert(result.fallbackUrl !== undefined);
+  assert(result.fallbackUrl !== undefined && result.fallbackUrl !== null);
   assert(result.fallbackUrl?.includes("tokCastellano"));
 });
 

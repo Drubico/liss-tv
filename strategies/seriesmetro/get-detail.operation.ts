@@ -124,8 +124,6 @@ export function parseSeriesmetroDetail(
       const epHref = $el.attr("href") || "";
       if (!epHref) return;
 
-      // Extract season & episode numbers from URL or text
-      // e.g. /capitulo/age-of-the-living-dead-temporada-1-capitulo-2/ or 1x2
       const match =
         epHref.match(/temporada-(\d+)-capitulo-(\d+)/i) ||
         $el.text().match(/(\d+)x(\d+)/i) ||
@@ -154,7 +152,6 @@ export function parseSeriesmetroDetail(
         seasonsMap.set(seasonNum, []);
       }
 
-      // Avoid duplicate episodes
       const existingList = seasonsMap.get(seasonNum)!;
       if (!existingList.some((e) => e.numberEpisode === epNum)) {
         existingList.push({
@@ -177,7 +174,7 @@ export function parseSeriesmetroDetail(
   const episodes: Season[] = Array.from(seasonsMap.entries())
     .sort(([a], [b]) => a - b)
     .map(([season, epList]) => ({
-      season,
+      season: String(season),
       episodes: epList.sort(
         (a, b) => parseInt(a.numberEpisode, 10) - parseInt(b.numberEpisode, 10)
       ),
@@ -188,7 +185,7 @@ export function parseSeriesmetroDetail(
     image: poster,
     backgroundImage: backdrop,
     type: isSerie ? "serie" : "movie",
-    synopsis: synopsis || undefined,
+    caption: synopsis || undefined,
     year: year || undefined,
     duration: undefined,
     tags: tags.length ? tags : undefined,
