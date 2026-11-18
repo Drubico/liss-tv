@@ -5,18 +5,22 @@ import { GetDetail } from "../../../strategies/seriesmetro/get-detail.operation.
 test("GetDetail parses movie synopsis and embed context", async () => {
   const movieHtml = `
     <h1 class="entry-title">Scream 3</h1>
-    <div class="description"><p>Sidney Prescott returns...</p></div>
-    <div class="post-thumbnail"><img src="https://image.tmdb.org/t/p/w500/poster.jpg" /></div>
-    <div class="genres"><a href="#">Terror</a><a href="#">Misterio</a></div>
-    <span class="date">2000</span>
-    <aside class="video-options">
-      <ul class="aa-tbs aa-tbs-video">
-        <li><a href="#options-0"><span class="server">-Latino</span></a></li>
-        <li><a href="#options-1"><span class="server">-Castellano</span></a></li>
-      </ul>
-    </aside>
-    <div id="options-0"><iframe data-src="https://www3.seriesmetro.net/?trembed=0&trid=39783&trtype=1"></iframe></div>
-    <div id="options-1"><iframe data-src="https://www3.seriesmetro.net/?trembed=1&trid=39783&trtype=1"></iframe></div>
+    <header class="header"><figure class="logo"><img src="https://www3.seriesmetro.net/wp-content/uploads/2024/04/Logo2.png" /></figure></header>
+    <div class="bghd"><img class="TPostBg" src="//image.tmdb.org/t/p/w1280/scream3_backdrop.jpg" /></div>
+    <article class="post">
+      <div class="description"><p>Sidney Prescott returns...</p></div>
+      <div class="post-thumbnail"><img src="https://image.tmdb.org/t/p/w185/poster.jpg" /></div>
+      <div class="genres"><a href="#">Terror</a><a href="#">Misterio</a></div>
+      <span class="date">2000</span>
+      <aside class="video-options">
+        <ul class="aa-tbs aa-tbs-video">
+          <li><a href="#options-0"><span class="server">-Latino</span></a></li>
+          <li><a href="#options-1"><span class="server">-Castellano</span></a></li>
+        </ul>
+      </aside>
+      <div id="options-0"><iframe data-src="https://www3.seriesmetro.net/?trembed=0&trid=39783&trtype=1"></iframe></div>
+      <div id="options-1"><iframe data-src="https://www3.seriesmetro.net/?trembed=1&trid=39783&trtype=1"></iframe></div>
+    </article>
   `;
 
   const mockFetch = async () => new Response(movieHtml, { status: 200 });
@@ -28,6 +32,10 @@ test("GetDetail parses movie synopsis and embed context", async () => {
   assert.strictEqual(detail.type, "movie");
   assert(detail.caption?.includes("Sidney Prescott"));
   assert.strictEqual(detail.image, "https://image.tmdb.org/t/p/w500/poster.jpg");
+  assert.strictEqual(
+    detail.backgroundImage,
+    "https://image.tmdb.org/t/p/w1280/scream3_backdrop.jpg"
+  );
   assert.strictEqual(detail.provider, "seriesmetro");
   assert(Array.isArray(detail.context?.embeds));
   assert.strictEqual((detail.context?.embeds as unknown[]).length, 2);

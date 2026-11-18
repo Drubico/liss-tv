@@ -2,6 +2,22 @@ import * as cheerio from "cheerio";
 import type { Episode, Season, StoredMovie, StrategyGetMovieDetails } from "@/types/movie";
 import { seriesmetroFetch } from "./client";
 
+function isValidImageUrl(url?: string): boolean {
+  if (!url || typeof url !== "string") return false;
+  const clean = url.trim().toLowerCase();
+  if (
+    clean === "" ||
+    clean.endsWith(".svg") ||
+    clean.endsWith(".gif") ||
+    clean.includes("logo") ||
+    clean.includes("icon") ||
+    clean.includes("ajax-loader")
+  ) {
+    return false;
+  }
+  return true;
+}
+
 export function parseSeriesmetroDetail(
   html: string,
   link: string
@@ -32,20 +48,42 @@ export function parseSeriesmetroDetail(
 
   // 2. Poster and Backdrop
   let poster =
-    $(".post-thumbnail figure img, .post-thumbnail img, figure img")
+    $("article.post .post-thumbnail img, .post-thumbnail figure img, .post-thumbnail img")
       .first()
       .attr("data-src") ||
-    $(".post-thumbnail figure img, .post-thumbnail img, figure img")
+    $("article.post .post-thumbnail img, .post-thumbnail figure img, .post-thumbnail img")
       .first()
       .attr("src") ||
-    $("meta[property='og:image']").attr("content") ||
     "";
 
   if (poster.startsWith("//")) {
     poster = `https:${poster}`;
   }
 
-  const backdrop = $("meta[property='og:image']").attr("content") || poster;
+  if (poster.includes("image.tmdb.org/t/p/w185")) {
+    poster = poster.replace("/w185/", "/w500/");
+  }
+
+  if (!isValidImageUrl(poster)) {
+    poster = "";
+  }
+
+  let backdrop =
+    $("img.TPostBg, .bghd img, .bgft img, [class*='backdrop'] img")
+      .first()
+      .attr("data-src") ||
+    $("img.TPostBg, .bghd img, .bgft img, [class*='backdrop'] img")
+      .first()
+      .attr("src") ||
+    "";
+
+  if (backdrop.startsWith("//")) {
+    backdrop = `https:${backdrop}`;
+  }
+
+  if (!isValidImageUrl(backdrop)) {
+    backdrop = poster;
+  }
 
   // 3. Synopsis
   const synopsis =
