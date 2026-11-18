@@ -13,6 +13,7 @@ export interface FavoriteItem {
   caption?: string;
   tags?: string[];
   type?: "movie" | "serie";
+  provider?: string;
 }
 
 interface FavoritesState {
@@ -93,7 +94,15 @@ export const useFavoritesStore = create<FavoritesState>()(
     }),
     {
       name: "liss-tv-favorites",
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() =>
+        typeof window !== "undefined" && typeof window.localStorage?.setItem === "function"
+          ? window.localStorage
+          : {
+              getItem: () => null,
+              setItem: () => {},
+              removeItem: () => {},
+            }
+      ),
     },
   ),
 );
