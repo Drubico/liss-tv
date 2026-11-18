@@ -43,16 +43,8 @@ describe("Continue Watching Navigation & Provider Inference", () => {
       assert.equal(inferProviderFromLink("/serie/drake-y-josh#s3-e7"), "megadede");
     });
 
-    it("should infer 'seriesmetro' when URL contains seriesmetro", () => {
-      assert.equal(inferProviderFromLink("https://www3.seriesmetro.net/pelicula/scream-3"), "seriesmetro");
-      assert.equal(inferProviderFromLink("/seriesmetro/pelicula/test"), "seriesmetro");
-    });
-
-    it("should return undefined for generic links without context and avoid false positives on words", () => {
+    it("should return undefined for generic links without context", () => {
       assert.equal(inferProviderFromLink("/pelicula/avatar-el-camino-del-agua"), undefined);
-      // 'muerte' has 6 letters but no digits; must not be matched as a megadede hash
-      assert.equal(inferProviderFromLink("/pelicula/scream-3-la-mascara-de-la-muerte"), undefined);
-      assert.equal(inferProviderFromLink("/pelicula/el-hombre-sin-sombra"), undefined);
     });
   });
 

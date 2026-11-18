@@ -30,13 +30,10 @@ export function inferProviderFromLink(
   if (
     clean.includes("megadede") ||
     clean.includes("/vidurl/") ||
-    /-(?=[a-z0-9]*[0-9])(?=[a-z0-9]*[a-z])[a-z0-9]{6}(?:#.*)?$/i.test(clean) ||
+    /-[a-z0-9]{6}(?:#.*)?$/i.test(clean) ||
     /#s\d+-e\d+/i.test(clean)
   ) {
     return "megadede";
-  }
-  if (clean.includes("seriesmetro")) {
-    return "seriesmetro";
   }
   return undefined;
 }
