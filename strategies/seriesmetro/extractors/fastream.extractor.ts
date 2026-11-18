@@ -46,7 +46,7 @@ export function unpackDeanEdwards(packedCode: string): string | null {
     while (c--) {
       if (dict[c]) {
         const token = baseN(c, a);
-        p = p.replace(new RegExp("\\b" + token + "\\b", "g"), dict[c]);
+        p = p.replace(new RegExp("\\b" + token + "\\b", "g"), () => dict[c]);
       }
     }
 

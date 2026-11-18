@@ -147,6 +147,7 @@ export class GetUrl implements StrategyGetUrl {
     return {
       url: primaryProxyUrl,
       fallbackUrl: secondaryProxyUrl,
+      directSegments: true,
       headers: {
         Referer: primary.hosterReferer,
       },

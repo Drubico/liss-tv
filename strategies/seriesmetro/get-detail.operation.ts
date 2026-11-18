@@ -184,6 +184,7 @@ export function parseSeriesmetroDetail(
     title,
     image: poster,
     backgroundImage: backdrop,
+    rating: rating || undefined,
     type: isSerie ? "serie" : "movie",
     caption: synopsis || undefined,
     year: year || undefined,

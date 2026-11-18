@@ -61,6 +61,56 @@ test("GetUrl resolves trembed iframe and formats directSegments proxy URL", asyn
   assert(result.fallbackUrl?.includes("tokCastellano"));
 });
 
+test("GetUrl resolves series episode with season and episode options", async () => {
+  const seriesPageHtml = `
+    <div class="seasons">
+      <a href="/capitulo/living-dead-temporada-1-capitulo-2/">1x2</a>
+    </div>
+  `;
+
+  const episodePageHtml = `
+    <aside class="video-options">
+      <ul class="aa-tbs aa-tbs-video">
+        <li><a href="#options-0"><span class="server">-Latino</span></a></li>
+      </ul>
+    </aside>
+    <div id="options-0">
+      <iframe src="https://www3.seriesmetro.net/?trembed=0&trid=555&trtype=2"></iframe>
+    </div>
+  `;
+
+  const trembedHtml = `
+    <div class="Video"><IFRAME SRC="https://fastream.to/embed-ep2.html"></IFRAME></div>
+  `;
+
+  const mockExtractor = async (url: string) => {
+    if (url.includes("embed-ep2")) {
+      return "https://s40.fastream.to/hls2/21/ep2/master.m3u8?t=tokEp2";
+    }
+    return null;
+  };
+
+  const mockFetch = (async (url: string) => {
+    if (url.includes("trembed")) {
+      return new Response(trembedHtml, { status: 200 });
+    }
+    if (url.includes("/capitulo/")) {
+      return new Response(episodePageHtml, { status: 200 });
+    }
+    return new Response(seriesPageHtml, { status: 200 });
+  }) as typeof fetch;
+
+  const getUrl = new GetUrl(mockFetch, mockExtractor);
+  const result = await getUrl.operation("/serie/living-dead/", {
+    season: 1,
+    episode: 2,
+  });
+
+  assert(result.url);
+  assert(result.url.includes("tokEp2"));
+  assert.strictEqual(result.directSegments, true);
+});
+
 test("GetUrl throws SeriesmetroError when no streams can be extracted", async () => {
   const emptyPage = "<html><body>No players</body></html>";
   const mockFetch = (async () => new Response(emptyPage, { status: 200 })) as typeof fetch;
