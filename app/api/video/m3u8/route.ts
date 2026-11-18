@@ -97,38 +97,49 @@ export async function GET(req: NextRequest) {
           "user-agent": BROWSER_UA,
           ...(effectiveReferer ? { referer: effectiveReferer } : {}),
         };
-        const fetchRes = await fetch(url, { headers: fetchHeaders });
+        const fetchRes = await fetch(url, {
+          headers: fetchHeaders,
+          signal: AbortSignal.timeout(8000),
+        });
         if (fetchRes.ok) {
           body = await fetchRes.text();
         }
       } catch {
-        // Fallback to got if native fetch threw a network error
+        // Fallback to got if native fetch threw a network error or timed out
       }
 
       // 2. Fallback to got with sticky proxy session if native fetch didn't succeed
       if (!body) {
-        const { agent } = isProxyEnabled()
-          ? createStickySession()
-          : { agent: undefined };
+        try {
+          const { agent } = isProxyEnabled()
+            ? createStickySession()
+            : { agent: undefined };
 
-        const manifestRes = await got(url, {
-          headers: {
-            "user-agent": BROWSER_UA,
-            ...(effectiveReferer ? { referer: effectiveReferer } : {}),
-          },
-          throwHttpErrors: false,
-          https: { rejectUnauthorized: false },
-          ...(agent ? { agent: { https: agent, http: agent } } : {}),
-        });
+          const manifestRes = await got(url, {
+            headers: {
+              "user-agent": BROWSER_UA,
+              ...(effectiveReferer ? { referer: effectiveReferer } : {}),
+            },
+            throwHttpErrors: false,
+            timeout: { request: 8000 },
+            https: { rejectUnauthorized: false },
+            ...(agent ? { agent: { https: agent, http: agent } } : {}),
+          });
 
-        if (manifestRes.statusCode >= 400) {
+          if (manifestRes.statusCode >= 400) {
+            return NextResponse.json(
+              { error: "Upstream manifest error", status: manifestRes.statusCode },
+              { status: 502 },
+            );
+          }
+
+          body = manifestRes.body;
+        } catch {
           return NextResponse.json(
-            { error: "Upstream manifest error", status: manifestRes.statusCode },
-            { status: 502 },
+            { error: "Upstream manifest timeout or connection error" },
+            { status: 504 },
           );
         }
-
-        body = manifestRes.body;
       }
       const origin = process.env.APP_URL;
       const appOrigin = origin || (req.nextUrl.origin.includes("0.0.0.0") ? "" : req.nextUrl.origin);
