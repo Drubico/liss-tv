@@ -52,14 +52,15 @@ test("GetUrl resolves trembed iframe and formats directSegments proxy URL", asyn
 
   assert(result.url);
   assert(result.url.startsWith("/api/video/m3u8?url="));
-  assert(result.url.includes("directSegments=true"));
+  assert(!result.url.includes("directSegments=true"));
   assert(result.url.includes("referer=https%3A%2F%2Ffastream.to%2F"));
   assert(result.url.includes("tokLatino"));
   assert.strictEqual(result.headers?.Referer, "https://fastream.to/");
-  assert.strictEqual(result.directSegments, true);
+  assert.strictEqual(result.directSegments, false);
 
   assert(result.fallbackUrl !== undefined && result.fallbackUrl !== null);
   assert(result.fallbackUrl?.startsWith("/api/video/m3u8?url="));
+  assert(!result.fallbackUrl?.includes("directSegments=true"));
   assert(result.fallbackUrl?.includes("tokCastellano"));
 });
 
@@ -110,7 +111,7 @@ test("GetUrl resolves series episode with season and episode options", async () 
 
   assert(result.url);
   assert(result.url.includes("tokEp2"));
-  assert.strictEqual(result.directSegments, true);
+  assert.strictEqual(result.directSegments, false);
 });
 
 test("GetUrl throws SeriesmetroError when no streams can be extracted", async () => {

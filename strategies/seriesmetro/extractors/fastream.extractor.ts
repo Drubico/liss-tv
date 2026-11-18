@@ -1,3 +1,5 @@
+import { BROWSER_UA } from "@/utils/browser";
+
 /**
  * Unpacks JavaScript code packed with Dean Edwards' P.A.C.K.E.R.
  */
@@ -66,8 +68,7 @@ export async function extractFastreamM3u8(
   try {
     const res = await fetchFn(embedUrl, {
       headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "User-Agent": BROWSER_UA,
         Referer: "https://www3.seriesmetro.net/",
       },
     });

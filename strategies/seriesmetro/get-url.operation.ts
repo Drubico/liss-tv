@@ -112,7 +112,9 @@ export class GetUrl implements StrategyGetUrl {
         let hosterReferer = "https://fastream.to/";
 
         if (hosterUrl.includes("fastream.to")) {
-          m3u8Url = await this.extractFn(hosterUrl, this.fetchFn);
+          // Fastream stream tokens are bound to User-Agent and fail with 403 if Accept-Language is present.
+          // Standard fetch ensures clean hoster embed requests without SeriesMetro's default headers.
+          m3u8Url = await this.extractFn(hosterUrl, fetch);
           hosterReferer = "https://fastream.to/";
         }
 
@@ -136,18 +138,18 @@ export class GetUrl implements StrategyGetUrl {
 
     const primaryProxyUrl = `/api/video/m3u8?url=${encodeURIComponent(
       primary.m3u8Url
-    )}&referer=${encodeURIComponent(primary.hosterReferer)}&directSegments=true`;
+    )}&referer=${encodeURIComponent(primary.hosterReferer)}`;
 
     const secondaryProxyUrl = secondary
       ? `/api/video/m3u8?url=${encodeURIComponent(
           secondary.m3u8Url
-        )}&referer=${encodeURIComponent(secondary.hosterReferer)}&directSegments=true`
+        )}&referer=${encodeURIComponent(secondary.hosterReferer)}`
       : undefined;
 
     return {
       url: primaryProxyUrl,
       fallbackUrl: secondaryProxyUrl,
-      directSegments: true,
+      directSegments: false,
       headers: {
         Referer: primary.hosterReferer,
       },
