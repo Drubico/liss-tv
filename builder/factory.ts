@@ -3,6 +3,7 @@ import { SoloLatinoMovieBuilder } from "./solo-latino.build";
 import { GnulaMovieBuilder } from "./gnula.build";
 import { SerieslanMovieBuilder } from "./serieslan.build";
 import { MegadedeMovieBuilder } from "./megadede.build";
+import { SeriesmetroMovieBuilder } from "./seriesmetro.build";
 import type { MovieBuilder } from "@/types/movie";
 
 export class MovieContextFactory {
@@ -11,6 +12,7 @@ export class MovieContextFactory {
     gnula: new GnulaMovieBuilder(),
     serieslan: new SerieslanMovieBuilder(),
     megadede: new MegadedeMovieBuilder(),
+    seriesmetro: new SeriesmetroMovieBuilder(),
   };
 
   private constructor() {}
@@ -31,8 +33,12 @@ export class MovieContextFactory {
     return new MegadedeMovieBuilder().build();
   }
 
+  static createSeriesmetroContext(): MovieContext {
+    return new SeriesmetroMovieBuilder().build();
+  }
+
   static driver(
-    name: "solo-latino" | "gnula" | "serieslan" | "megadede",
+    name: "solo-latino" | "gnula" | "serieslan" | "megadede" | "seriesmetro",
   ): MovieContext {
     const builder = MovieContextFactory.providers[name];
 
