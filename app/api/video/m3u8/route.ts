@@ -89,28 +89,47 @@ export async function GET(req: NextRequest) {
     // never touches the proxy.
     // ------------------------------------------------------------------
     if (isManifestUrl) {
-      const { agent } = isProxyEnabled()
-        ? createStickySession()
-        : { agent: undefined };
+      let body: string | null = null;
 
-      const manifestRes = await got(url, {
-        headers: {
+      // 1. First attempt with native fetch (modern Undici TLS fingerprint to bypass CDN TLS blocks like Fastream/Acek)
+      try {
+        const fetchHeaders: Record<string, string> = {
           "user-agent": BROWSER_UA,
           ...(effectiveReferer ? { referer: effectiveReferer } : {}),
-        },
-        throwHttpErrors: false,
-        https: { rejectUnauthorized: false },
-        ...(agent ? { agent: { https: agent, http: agent } } : {}),
-      });
-
-      if (manifestRes.statusCode >= 400) {
-        return NextResponse.json(
-          { error: "Upstream manifest error", status: manifestRes.statusCode },
-          { status: 502 },
-        );
+        };
+        const fetchRes = await fetch(url, { headers: fetchHeaders });
+        if (fetchRes.ok) {
+          body = await fetchRes.text();
+        }
+      } catch {
+        // Fallback to got if native fetch threw a network error
       }
 
-      const body = manifestRes.body;
+      // 2. Fallback to got with sticky proxy session if native fetch didn't succeed
+      if (!body) {
+        const { agent } = isProxyEnabled()
+          ? createStickySession()
+          : { agent: undefined };
+
+        const manifestRes = await got(url, {
+          headers: {
+            "user-agent": BROWSER_UA,
+            ...(effectiveReferer ? { referer: effectiveReferer } : {}),
+          },
+          throwHttpErrors: false,
+          https: { rejectUnauthorized: false },
+          ...(agent ? { agent: { https: agent, http: agent } } : {}),
+        });
+
+        if (manifestRes.statusCode >= 400) {
+          return NextResponse.json(
+            { error: "Upstream manifest error", status: manifestRes.statusCode },
+            { status: 502 },
+          );
+        }
+
+        body = manifestRes.body;
+      }
       const origin = process.env.APP_URL;
       const appOrigin = origin || (req.nextUrl.origin.includes("0.0.0.0") ? "" : req.nextUrl.origin);
       const rewrittenBody = rewriteManifest(body, url, {
