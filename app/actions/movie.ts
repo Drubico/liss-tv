@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { withTimeout, attempts, inferProviderFromLink } from "@/utils/utils";
 import { DriverRegistry } from "@/drivers/registry";
-import { GetUrlOptions, MovieDriver } from "@/types/movie";
+import type { GetUrlOptions, MovieDriver } from "@/types/movie";
 import { get, getAny, findProviderBySlugOrLink } from "@/services/movie.store";
 
 const PROVIDER_COOKIE_NAME = "liss_provider";
