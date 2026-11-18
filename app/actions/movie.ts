@@ -44,24 +44,27 @@ export async function getAllMovies(
 }
 
 export async function getDetails(link: string, providerId?: string) {
-  const stored = providerId ? get(providerId, link) : getAny(link);
+  const activeProvider = await getActiveProviderId();
+  const stored = providerId ? get(providerId, link) : get(activeProvider, link) || getAny(link);
   const resolvedProvider =
     providerId ||
     stored?.provider ||
-    inferProviderFromLink(link) ||
-    findProviderBySlugOrLink(link);
+    findProviderBySlugOrLink(link) ||
+    inferProviderFromLink(link);
   const driver = await getActiveDriver(resolvedProvider);
   return await driver.getDetail(link);
 }
 
 export async function getMovieUrl(link: string, options?: GetUrlOptions) {
+  const activeProvider = await getActiveProviderId();
   const providerHint =
     (options?.params?.provider as string | undefined) ||
     (options?.detailContext?.provider as string | undefined);
-  const stored = providerHint ? get(providerHint, link) : getAny(link);
+  const stored = providerHint ? get(providerHint, link) : get(activeProvider, link) || getAny(link);
   const explicitProvider =
     providerHint ||
     stored?.provider ||
+    findProviderBySlugOrLink(link) ||
     inferProviderFromLink(link, options?.detailContext || options?.params);
 
   const mergedOptions: GetUrlOptions = {
