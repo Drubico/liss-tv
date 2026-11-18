@@ -35,3 +35,21 @@ test("extractVidhideM3u8 extracts master.m3u8 from embedded page", async (t) => 
   const m3u8 = await extractVidhideM3u8("https://morencius.com/embed/test1234");
   assert.strictEqual(m3u8, "https://cdn.video.com/hls/master.m3u8");
 });
+
+test("extractVidhideM3u8 prioritizes hls4 over hls2 and resolves relative URL", async (t) => {
+  const originalFetch = global.fetch;
+  const mockPageHtml = `
+    <script>
+      eval(function(p,a,c,k,e,d){return p}('var links={"hls2":"https://dead.acek-cdn.com/master.m3u8","hls4":"/stream/abcdef/master.m3u8"};jwplayer("vplayer").setup({sources:[{file:links.hls4||links.hls2}]});',1,1,''.split('|')))
+    </script>
+  `;
+
+  global.fetch = async () => new Response(mockPageHtml, { status: 200 });
+
+  t.after(() => {
+    global.fetch = originalFetch;
+  });
+
+  const m3u8 = await extractVidhideM3u8("https://morencius.com/embed/s2mzberiscgi");
+  assert.strictEqual(m3u8, "https://morencius.com/stream/abcdef/master.m3u8");
+});

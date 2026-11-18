@@ -29,6 +29,47 @@ export function unpackDeanEdwards(packedCode: string): string | null {
   return p;
 }
 
+export function extractM3u8FromUnpacked(unpacked: string, embedUrl: string): string | null {
+  // 1. Look for var links = { ... } object used by JWPlayer in Vidhide/Morencius
+  const linksMatch = unpacked.match(/var\s+links\s*=\s*(\{[\s\S]*?\});/);
+  if (linksMatch) {
+    try {
+      const parseFn = new Function(`return ${linksMatch[1]}`);
+      const links = parseFn() as Record<string, string>;
+      const candidate =
+        links.hls4 ||
+        links.hls3 ||
+        links.hls2 ||
+        links.hls1 ||
+        Object.values(links)[0];
+      if (candidate) {
+        return new URL(candidate, embedUrl).href;
+      }
+    } catch {
+      // Continue to next checks
+    }
+  }
+
+  // 2. Check for jwplayer sources array: sources: [{ file: "..." }]
+  const sourcesMatch = unpacked.match(
+    /sources\s*:\s*\[\s*\{\s*file\s*:\s*["']([^"']+)["']/,
+  );
+  if (sourcesMatch) {
+    return new URL(sourcesMatch[1], embedUrl).href;
+  }
+
+  // 3. Check for direct absolute or relative m3u8
+  const directMatch = unpacked.match(/(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/);
+  if (directMatch) return directMatch[1];
+
+  const relativeMatch = unpacked.match(/["'](\/[^"'\s]+\.m3u8[^"'\s]*)["']/);
+  if (relativeMatch) {
+    return new URL(relativeMatch[1], embedUrl).href;
+  }
+
+  return null;
+}
+
 export async function extractVidhideM3u8(embedUrl: string): Promise<string | null> {
   try {
     const res = await fetch(embedUrl, {
@@ -42,19 +83,21 @@ export async function extractVidhideM3u8(embedUrl: string): Promise<string | nul
     if (!res.ok) return null;
     const html = await res.text();
 
-    // Check direct m3u8 in html
-    const directMatch = html.match(/(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/);
-    if (directMatch) return directMatch[1];
-
-    // Check packed script
-    const packedMatch = html.match(/eval\(function\(p,a,c,k,e,d\)[\s\S]*?\.split\('\|'\)\)\)/);
+    // 1. Check packed script first (where JWPlayer setup and links are defined)
+    const packedMatch = html.match(
+      /eval\(function\(p,a,c,k,e,d\)[\s\S]*?\.split\('\|'\)\)\)/,
+    );
     if (packedMatch) {
       const unpacked = unpackDeanEdwards(packedMatch[0]);
       if (unpacked) {
-        const m3u8Match = unpacked.match(/https?:\/\/[^"'\s]+\.m3u8[^"'\s]*/);
-        if (m3u8Match) return m3u8Match[0];
+        const stream = extractM3u8FromUnpacked(unpacked, embedUrl);
+        if (stream) return stream;
       }
     }
+
+    // 2. Check direct m3u8 in html as fallback
+    const directMatch = html.match(/(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/);
+    if (directMatch) return directMatch[1];
 
     return null;
   } catch {

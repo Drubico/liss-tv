@@ -1,4 +1,4 @@
-import { unpackDeanEdwards } from "./vidhide.extractor";
+import { unpackDeanEdwards, extractM3u8FromUnpacked } from "./vidhide.extractor";
 
 export async function extractStreamwishM3u8(embedUrl: string): Promise<string | null> {
   try {
@@ -13,17 +13,21 @@ export async function extractStreamwishM3u8(embedUrl: string): Promise<string | 
     if (!res.ok) return null;
     const html = await res.text();
 
-    const directMatch = html.match(/(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/);
-    if (directMatch) return directMatch[1];
-
-    const packedMatch = html.match(/eval\(function\(p,a,c,k,e,d\)[\s\S]*?\.split\('\|'\)\)\)/);
+    // 1. Check packed script first (where JWPlayer setup and links are defined)
+    const packedMatch = html.match(
+      /eval\(function\(p,a,c,k,e,d\)[\s\S]*?\.split\('\|'\)\)\)/,
+    );
     if (packedMatch) {
       const unpacked = unpackDeanEdwards(packedMatch[0]);
       if (unpacked) {
-        const m3u8Match = unpacked.match(/https?:\/\/[^"'\s]+\.m3u8[^"'\s]*/);
-        if (m3u8Match) return m3u8Match[0];
+        const stream = extractM3u8FromUnpacked(unpacked, embedUrl);
+        if (stream) return stream;
       }
     }
+
+    // 2. Check direct m3u8 in html as fallback
+    const directMatch = html.match(/(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/);
+    if (directMatch) return directMatch[1];
 
     return null;
   } catch {
