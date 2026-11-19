@@ -186,6 +186,7 @@ export default function SmartTvPlayer({
   const playerRef =
     (ref as React.RefObject<MediaPlayerInstance | null>) ?? internalRef;
 
+  const [prevSrc, setPrevSrc] = useState(src);
   const [showControls, setShowControls] = useState(true);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -196,6 +197,15 @@ export default function SmartTvPlayer({
 
   // Autoplay bloqueado → mostrar overlay de inicio
   const [needsUserGesture, setNeedsUserGesture] = useState(false);
+
+  if (src !== prevSrc) {
+    setPrevSrc(src);
+    setShowControls(true);
+    setCurrentTime(0);
+    setDuration(0);
+    setPaused(true);
+    setNeedsUserGesture(false);
+  }
 
   const canAutoHide = !paused && Number.isFinite(duration) && duration > 0;
   const controlsVisible = showControls || !canAutoHide;
