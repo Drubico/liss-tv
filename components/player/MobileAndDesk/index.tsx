@@ -42,21 +42,24 @@ export default function MobileAndDeskPlayer({
     initialSeekDoneRef.current = startTime <= 0;
   }, [src, startTime]);
 
-  const handleCanPlay = () => {
-    if (!initialSeekDoneRef.current && startTime > 0) {
-      if (ref && "current" in ref && ref.current) {
-        ref.current.currentTime = startTime;
-        initialSeekDoneRef.current = true;
+  const performSeek = (dur?: number) => {
+    if (initialSeekDoneRef.current || startTime <= 0) return;
+    if (ref && "current" in ref && ref.current) {
+      const player = ref.current;
+      const duration = dur ?? player.duration ?? 0;
+      if (duration > 0 || player.state?.canSeek) {
+        player.currentTime = startTime;
       }
     }
   };
 
   const onTimeUpdateWrapper: typeof handleTimeUpdate = (detail, nativeEvent) => {
     if (startTime > 0 && !initialSeekDoneRef.current) {
-      if (detail.currentTime >= Math.max(0, startTime - 2)) {
+      if (detail.currentTime >= Math.max(0, startTime - 3)) {
         initialSeekDoneRef.current = true;
       } else {
-        // Discard 0:00 tick during initial buffering before seek takes effect
+        // Discard 0:00 tick during initial buffering before seek takes effect and trigger seek
+        performSeek();
         return;
       }
     }
@@ -121,10 +124,10 @@ export default function MobileAndDeskPlayer({
           playsInline
           title={title}
           poster={poster}
-          currentTime={startTime}
-          onCanPlay={handleCanPlay}
-          onLoadedMetadata={handleCanPlay}
-          onStarted={handleCanPlay}
+          onDurationChange={(dur) => performSeek(dur)}
+          onCanPlay={() => performSeek()}
+          onLoadedMetadata={() => performSeek()}
+          onStarted={() => performSeek()}
           onTimeUpdate={onTimeUpdateWrapper}
           onPause={handlePause}
           onErrorCapture={onErrorCapture}

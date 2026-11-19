@@ -90,6 +90,8 @@ export function useMovie() {
       return;
     }
 
+    if (currentTime < 5 && lastSavedTimeRef.current > 20) return;
+
     if (Math.abs(currentTime - lastSavedTimeRef.current) < 20) return;
 
     const resolvedProvider =

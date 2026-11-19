@@ -52,6 +52,9 @@ export function PlayerView() {
   const player = useRef<MediaPlayerInstance | null>(null);
 
   const saveWatchProgress = (currentTime: number, duration: number) => {
+    if (moviePreview?.startTime && moviePreview.startTime > 20 && currentTime < 5) {
+      return;
+    }
     return syncToLocal({
       currentTime,
       duration,
@@ -105,6 +108,11 @@ export function PlayerView() {
                 }
               }
 
+              const existingItem = store.continueWatching.find(
+                (m) => m.link === targetLink || m.link === cleanLink,
+              );
+              const recoveredStartTime = existingItem?.currentTime || 0;
+
               const recoveredPreview: MoviePreview = {
                 title: details.title || "",
                 link: targetLink,
@@ -112,7 +120,7 @@ export function PlayerView() {
                 backgroundImage: details.backgroundImage,
                 provider: details.provider,
                 context: epContext,
-                startTime: 0,
+                startTime: recoveredStartTime,
               };
               preview = recoveredPreview;
               store.setMovieData(recoveredPreview);
