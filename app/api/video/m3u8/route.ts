@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
         };
         const fetchRes = await fetch(url, {
           headers: fetchHeaders,
-          signal: AbortSignal.timeout(8000),
+          signal: AbortSignal.timeout(5000),
         });
         if (fetchRes.ok) {
           body = await fetchRes.text();
@@ -124,7 +124,7 @@ export async function GET(req: NextRequest) {
               ...(effectiveReferer ? { referer: effectiveReferer } : {}),
             },
             throwHttpErrors: false,
-            timeout: { request: 8000 },
+            timeout: { request: 5000 },
             https: { rejectUnauthorized: false },
             ...(agent ? { agent: { https: agent, http: agent } } : {}),
           });
