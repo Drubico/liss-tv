@@ -331,6 +331,7 @@ export default function SmartTvPlayer({
         currentTime={startTime}
         className="w-full h-full"
         onCanPlay={handleCanPlay}
+        onError={onErrorCapture as any}
         onErrorCapture={onErrorCapture}
         onTimeUpdate={(detail, nativeEvent) => {
           setCurrentTime(detail.currentTime);

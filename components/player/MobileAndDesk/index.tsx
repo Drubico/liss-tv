@@ -130,6 +130,7 @@ export default function MobileAndDeskPlayer({
           onStarted={() => performSeek()}
           onTimeUpdate={onTimeUpdateWrapper}
           onPause={handlePause}
+          onError={onErrorCapture as any}
           onErrorCapture={onErrorCapture}
           className="w-full h-full"
         >
