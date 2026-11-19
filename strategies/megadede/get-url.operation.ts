@@ -129,14 +129,17 @@ export class GetUrl implements StrategyGetUrl {
     const primary = resolvedStreams[0];
     const secondary = resolvedStreams[1];
 
-    const primaryProxyUrl = `/api/video/m3u8?url=${encodeURIComponent(
-      primary.m3u8Url
-    )}&referer=${encodeURIComponent(primary.hosterReferer)}`;
+    const formatProxyUrl = (rawUrl: string, hosterReferer: string): string => {
+      const isM3u8 = rawUrl.includes(".m3u8");
+      const manifestParam = isM3u8 ? "" : "&manifest=true";
+      return `/api/video/m3u8?url=${encodeURIComponent(
+        rawUrl
+      )}&referer=${encodeURIComponent(hosterReferer)}${manifestParam}`;
+    };
 
+    const primaryProxyUrl = formatProxyUrl(primary.m3u8Url, primary.hosterReferer);
     const secondaryProxyUrl = secondary
-      ? `/api/video/m3u8?url=${encodeURIComponent(
-          secondary.m3u8Url
-        )}&referer=${encodeURIComponent(secondary.hosterReferer)}`
+      ? formatProxyUrl(secondary.m3u8Url, secondary.hosterReferer)
       : undefined;
 
     return {

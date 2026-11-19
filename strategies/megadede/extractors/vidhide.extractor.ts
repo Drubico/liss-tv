@@ -37,6 +37,7 @@ export function extractM3u8FromUnpacked(unpacked: string, embedUrl: string): str
       const parseFn = new Function(`return ${linksMatch[1]}`);
       const links = parseFn() as Record<string, string>;
       const candidate =
+        links.hls ||
         links.hls4 ||
         links.hls3 ||
         links.hls2 ||
@@ -58,11 +59,15 @@ export function extractM3u8FromUnpacked(unpacked: string, embedUrl: string): str
     return new URL(sourcesMatch[1], embedUrl).href;
   }
 
-  // 3. Check for direct absolute or relative m3u8
-  const directMatch = unpacked.match(/(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/);
+  // 3. Check for direct absolute or relative m3u8 or master/index playlist
+  const directMatch = unpacked.match(
+    /(https?:\/\/[^"'\s]+(?:\.m3u8|\.txt|master\.|index\.)[^"'\s]*)/
+  );
   if (directMatch) return directMatch[1];
 
-  const relativeMatch = unpacked.match(/["'](\/[^"'\s]+\.m3u8[^"'\s]*)["']/);
+  const relativeMatch = unpacked.match(
+    /["'](\/[^"'\s]+(?:\.m3u8|\.txt|master\.|index\.)[^"'\s]*)["']/
+  );
   if (relativeMatch) {
     return new URL(relativeMatch[1], embedUrl).href;
   }
@@ -95,9 +100,9 @@ export async function extractVidhideM3u8(embedUrl: string): Promise<string | nul
       }
     }
 
-    // 2. Check direct m3u8 in html as fallback
-    const directMatch = html.match(/(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/);
-    if (directMatch) return directMatch[1];
+    // 2. Check unpacked/raw HTML as fallback
+    const rawStream = extractM3u8FromUnpacked(html, embedUrl);
+    if (rawStream) return rawStream;
 
     return null;
   } catch {

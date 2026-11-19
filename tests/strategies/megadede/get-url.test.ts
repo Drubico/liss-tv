@@ -208,3 +208,47 @@ test("GetUrl prioritizes VOE and Streamwish over Vidhide", async (t) => {
   assert.strictEqual(result.headers?.Referer, "https://voe.sx/");
   assert.strictEqual(result.directSegments, false);
 });
+
+test("GetUrl appends &manifest=true when resolved stream URL does not end in .m3u8", async (t) => {
+  const challenge = "testchallenge";
+  const salt = "testsalt";
+  const vidhideCipher = encryptTestPayload("https://morencius.com/embed/vid1", challenge, salt);
+
+  const mockVidurlHtml = `
+    <script>
+      const LINK_CHALLENGE = '${challenge}';
+      const LINK_SALT = '${salt}';
+      const dataLink = [
+        {
+          video_language: "LAT",
+          sortedEmbeds: [
+            { servername: "Vidhide", link: "${vidhideCipher}" }
+          ]
+        }
+      ];
+    </script>
+  `;
+
+  const originalFetch = global.fetch;
+  global.fetch = async (input: RequestInfo | URL) => {
+    const url = input.toString();
+    if (url.includes("/vidurl/")) {
+      return new Response(mockVidurlHtml, { status: 200 });
+    }
+    if (url.includes("morencius.com")) {
+      return new Response('var links = { hls: "https://cdn.video.com/hls/master.txt" };', { status: 200 });
+    }
+    return new Response("Not found", { status: 404 });
+  };
+
+  t.after(() => {
+    global.fetch = originalFetch;
+  });
+
+  const getUrl = new GetUrl();
+  const result = await getUrl.operation("/vidurl/tt12345/");
+
+  assert(result.url?.includes(encodeURIComponent("https://cdn.video.com/hls/master.txt")));
+  assert(result.url?.includes("&manifest=true"));
+});
+
