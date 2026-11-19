@@ -70,11 +70,30 @@ export class GetUrl implements StrategyGetUrl {
       throw new MegadedeError(`[Megadede] No streaming embeds available for language ${preferredLang}`);
     }
 
+    const isVoe = (server: string, url = ""): boolean => {
+      const s = (server + " " + url).toLowerCase();
+      return s.includes("voe");
+    };
+
+    const isWish = (server: string, url = ""): boolean => {
+      const s = (server + " " + url).toLowerCase();
+      return s.includes("wish") || s.includes("swish") || s.includes("hglink");
+    };
+
+    const isVidhide = (server: string, url = ""): boolean => {
+      const s = (server + " " + url).toLowerCase();
+      return (
+        s.includes("vidhide") ||
+        s.includes("morencius") ||
+        s.includes("filelions") ||
+        s.includes("lion")
+      );
+    };
+
     const getServerPriority = (servername: string): number => {
-      const s = servername.toLowerCase();
-      if (s.includes("voe")) return 1;
-      if (s.includes("streamwish") || s.includes("hglink")) return 2;
-      if (s.includes("vidhide") || s.includes("morencius")) return 3;
+      if (isVoe(servername)) return 1;
+      if (isWish(servername)) return 2;
+      if (isVidhide(servername)) return 3;
       return 4;
     };
 
@@ -106,11 +125,11 @@ export class GetUrl implements StrategyGetUrl {
         let m3u8Url: string | null = null;
         const server = embed.servername?.toLowerCase() || "";
 
-        if (server.includes("voe") || decryptedUrl.includes("voe.sx")) {
+        if (isVoe(server, decryptedUrl)) {
           m3u8Url = await extractVoeM3u8(decryptedUrl);
-        } else if (server.includes("streamwish") || decryptedUrl.includes("hglink")) {
+        } else if (isWish(server, decryptedUrl)) {
           m3u8Url = await extractStreamwishM3u8(decryptedUrl);
-        } else if (server.includes("vidhide") || decryptedUrl.includes("morencius") || decryptedUrl.includes("vidhide")) {
+        } else if (isVidhide(server, decryptedUrl)) {
           m3u8Url = await extractVidhideM3u8(decryptedUrl);
         }
 

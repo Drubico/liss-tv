@@ -25,9 +25,9 @@ export async function extractStreamwishM3u8(embedUrl: string): Promise<string | 
       }
     }
 
-    // 2. Check direct m3u8 in html as fallback
-    const directMatch = html.match(/(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/);
-    if (directMatch) return directMatch[1];
+    // 2. Check unpacked/raw HTML as fallback
+    const rawStream = extractM3u8FromUnpacked(html, embedUrl);
+    if (rawStream) return rawStream;
 
     return null;
   } catch {
