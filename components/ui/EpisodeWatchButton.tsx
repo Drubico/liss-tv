@@ -4,6 +4,7 @@ import { Episode } from "@/types/movie";
 import Image from "next/image";
 import FocusElementProvider from "../providers/FocusElementProvider";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Play } from "lucide-react";
 
 export default function EpisodeWatchButton({
@@ -15,11 +16,15 @@ export default function EpisodeWatchButton({
   onClick: VoidFunction;
   href: string;
 }) {
+  const router = useRouter();
   const episodeNumber = ep.numberEpisode?.replace(/[^0-9]/g, "") || "1";
 
   return (
     <FocusElementProvider
-      onEnterPress={() => onClick()}
+      onEnterPress={() => {
+        onClick();
+        router.push(href);
+      }}
       className="rounded-2xl w-full"
       strokeSize={0}
       styleFocus={{
