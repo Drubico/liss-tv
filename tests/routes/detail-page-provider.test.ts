@@ -20,9 +20,21 @@ test("getDetails does not let another provider cache hijack active provider reso
     image: "https://example.com/poster.jpg",
     backgroundImage: "https://example.com/backdrop.jpg",
     provider: "seriesmetro",
-    link: testSlug,
     type: "serie",
-    episodes: [{ season: "1", episodes: [{ episode: 1, name: "Ep 1", link: "test" }] }],
+    episodes: [
+      {
+        season: "1",
+        episodes: [
+          {
+            link: "test",
+            title: "Ep 1",
+            image: "https://example.com/ep1.jpg",
+            numberEpisode: "1",
+            caption: "Ep 1",
+          },
+        ],
+      },
+    ],
   });
 
   try {
