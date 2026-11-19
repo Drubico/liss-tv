@@ -33,6 +33,11 @@ export function MovieCard({ movie }: { movie: Movie }) {
   const year = getCleanYear(movie.year);
   const rating = movie.rating?.replace(/★/, "").trim();
 
+  const movieHref =
+    movie.provider && !movie.link.includes("provider=")
+      ? `${movie.link}${movie.link.includes("?") ? "&" : "?"}provider=${encodeURIComponent(movie.provider)}`
+      : movie.link;
+
   return (
     <FocusElementProvider
       strokeSize={0}
@@ -42,10 +47,10 @@ export function MovieCard({ movie }: { movie: Movie }) {
         outlineOffset: "2px",
         transform: "scale(1.04)",
       }}
-      onEnterPress={() => router.push(movie.link)}
+      onEnterPress={() => router.push(movieHref)}
     >
       <Link
-        href={movie.link}
+        href={movieHref}
         className="group/card relative block rounded-xl overflow-hidden bg-[#131519] border border-white/[0.06] hover:border-white/20 transition-all duration-300 hover:shadow-[0_12px_32px_rgba(0,0,0,0.8)] cursor-pointer"
       >
         {/* Poster */}

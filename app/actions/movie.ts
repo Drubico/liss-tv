@@ -10,9 +10,13 @@ const PROVIDER_COOKIE_NAME = "liss_provider";
 const DEFAULT_PROVIDER = "megadede";
 
 export async function getActiveProviderId(): Promise<string> {
-  const cookieStore = await cookies();
-  const provider = cookieStore.get(PROVIDER_COOKIE_NAME)?.value;
-  return provider || DEFAULT_PROVIDER;
+  try {
+    const cookieStore = await cookies();
+    const provider = cookieStore.get(PROVIDER_COOKIE_NAME)?.value;
+    return provider || DEFAULT_PROVIDER;
+  } catch {
+    return DEFAULT_PROVIDER;
+  }
 }
 
 export async function setActiveProvider(providerId: string): Promise<void> {
@@ -44,12 +48,14 @@ export async function getAllMovies(
 }
 
 export async function getDetails(link: string, providerId?: string) {
-  const stored = providerId ? get(providerId, link) : getAny(link);
+  const activeCookieProvider = await getActiveProviderId();
   const resolvedProvider =
     providerId ||
-    stored?.provider ||
+    activeCookieProvider ||
     inferProviderFromLink(link) ||
-    findProviderBySlugOrLink(link);
+    findProviderBySlugOrLink(link) ||
+    DEFAULT_PROVIDER;
+
   const driver = await getActiveDriver(resolvedProvider);
   return await driver.getDetail(link);
 }
