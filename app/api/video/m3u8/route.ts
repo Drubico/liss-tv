@@ -67,6 +67,9 @@ export async function GET(req: NextRequest) {
 
   const isManifestUrl =
     url.includes(".m3u8") ||
+    url.includes(".txt") ||
+    url.includes("master.") ||
+    url.includes("index.") ||
     req.nextUrl.searchParams.get("manifest") === "true";
   const refererParam = req.nextUrl.searchParams.get("referer");
   const directSegmentsParam =

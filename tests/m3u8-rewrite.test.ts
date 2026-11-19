@@ -35,3 +35,39 @@ test("rewriteManifest appends referer to proxied URLs when provided", () => {
 
   assert.ok(result.includes("/api/video/m3u8?url=https%3A%2F%2Fcdn.example.com%2Fstream%2Fsegment1.ts&referer=https%3A%2F%2Fprovider.example.com%2Fembed%2F123"));
 });
+
+test("rewriteManifest correctly recognizes and proxies .txt sub-manifests even with directSegments", () => {
+  const masterManifest = `#EXTM3U
+#EXT-X-STREAM-INF:BANDWIDTH=1280000,RESOLUTION=1280x720
+index.txt
+#EXT-X-STREAM-INF:BANDWIDTH=2560000,RESOLUTION=1920x1080
+sub/video.m3u8
+#EXTINF:10.0,
+segment1.ts`;
+
+  const result = rewriteManifest(
+    masterManifest,
+    "https://cdn.example.com/hls/master.txt",
+    {
+      baseOrigin: "https://app.example.com",
+      directSegments: true,
+      referer: "https://morencius.com/",
+    }
+  );
+
+  assert.ok(
+    result.includes(
+      "https://app.example.com/api/video/m3u8?url=https%3A%2F%2Fcdn.example.com%2Fhls%2Findex.txt&directSegments=true&referer=https%3A%2F%2Fmorencius.com%2F"
+    )
+  );
+  assert.ok(
+    result.includes(
+      "https://app.example.com/api/video/m3u8?url=https%3A%2F%2Fcdn.example.com%2Fhls%2Fsub%2Fvideo.m3u8&directSegments=true&referer=https%3A%2F%2Fmorencius.com%2F"
+    )
+  );
+  // Segment should be direct when directSegments is true
+  assert.ok(
+    result.includes("https://cdn.example.com/hls/segment1.ts")
+  );
+});
+

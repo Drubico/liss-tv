@@ -52,7 +52,11 @@ export function rewriteManifest(
 
       if (trimmed !== "" && !trimmed.startsWith("#")) {
         const absolute = resolveUrl(trimmed, manifestUrl);
-        const isSubManifest = absolute.includes(".m3u8");
+        const isSubManifest =
+          absolute.includes(".m3u8") ||
+          absolute.includes(".txt") ||
+          absolute.includes("master.") ||
+          absolute.includes("index.");
 
         if (directSegments && !isSubManifest) {
           return absolute;
