@@ -57,7 +57,7 @@ export function HomeHero({ movie }: HomeHeroProps) {
   };
 
   return (
-    <section className="relative w-full h-[72vh] min-h-[500px] max-h-[760px] overflow-hidden flex items-end">
+    <section className="relative w-full h-[80vh] sm:h-[85vh] min-h-[580px] sm:min-h-[640px] max-h-[840px] overflow-hidden flex items-end">
       {/* ── Background Backdrop Image ── */}
       <div className="absolute inset-0">
         <Image
@@ -71,11 +71,11 @@ export function HomeHero({ movie }: HomeHeroProps) {
         {/* Gradients for cinematic immersion and text contrast */}
         <div className="absolute inset-0 bg-gradient-to-t from-[#090a0c] via-[#090a0c]/60 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-r from-[#090a0c]/95 via-[#090a0c]/65 to-transparent sm:w-3/4" />
-        <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-[#090a0c]/80 to-transparent" />
+        <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-[#090a0c]/90 via-[#090a0c]/50 to-transparent" />
       </div>
 
       {/* ── Content Details ── */}
-      <div className="relative z-10 w-full max-w-3xl lg:max-w-4xl px-4 sm:px-8 lg:px-12 pb-12 sm:pb-16 flex flex-col gap-3.5 sm:gap-4">
+      <div className="relative z-10 w-full max-w-3xl lg:max-w-4xl px-4 sm:px-8 lg:px-12 pt-24 sm:pt-28 pb-10 sm:pb-12 flex flex-col gap-3.5 sm:gap-4">
         {/* Eyebrow badge */}
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#e50914]/20 border border-[#e50914]/40 text-[#e50914] text-xs font-bold uppercase tracking-wider">

@@ -1,6 +1,6 @@
 export function HomeHeroSkeleton() {
   return (
-    <div className="relative w-full h-[72vh] min-h-[500px] max-h-[760px] bg-[#131519] overflow-hidden flex items-end">
+    <div className="relative w-full h-[80vh] sm:h-[85vh] min-h-[580px] sm:min-h-[640px] max-h-[840px] bg-[#131519] overflow-hidden flex items-end">
       {/* Shimmer background */}
       <div className="absolute inset-0 animate-shimmer" />
 
@@ -8,7 +8,7 @@ export function HomeHeroSkeleton() {
       <div className="absolute inset-0 bg-gradient-to-t from-[#090a0c] via-[#090a0c]/60 to-transparent" />
 
       {/* Content skeleton */}
-      <div className="relative z-10 w-full max-w-[1800px] mx-auto px-4 sm:px-8 lg:px-12 pb-12 sm:pb-16 flex flex-col gap-4 max-w-2xl">
+      <div className="relative z-10 w-full max-w-[1800px] mx-auto px-4 sm:px-8 lg:px-12 pt-24 sm:pt-28 pb-10 sm:pb-12 flex flex-col gap-4 max-w-2xl">
         <div className="w-28 h-6 rounded-full bg-white/[0.08] animate-shimmer" />
         <div className="w-3/4 h-12 sm:h-16 rounded-xl bg-white/[0.08] animate-shimmer" />
         <div className="w-48 h-5 rounded-md bg-white/[0.08] animate-shimmer" />
