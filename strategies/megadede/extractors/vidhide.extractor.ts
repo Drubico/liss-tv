@@ -29,6 +29,12 @@ export function unpackDeanEdwards(packedCode: string): string | null {
   return p;
 }
 
+const DEAD_CDNS = ["radiantgroveproduction.cfd"];
+
+export function isDeadCdn(url: string): boolean {
+  return DEAD_CDNS.some((d) => url.toLowerCase().includes(d));
+}
+
 export function extractM3u8FromUnpacked(unpacked: string, embedUrl: string): string | null {
   // 1. Look for var links = { ... } object used by JWPlayer in Vidhide/Morencius
   const linksMatch = unpacked.match(/var\s+links\s*=\s*(\{[\s\S]*?\});/);
@@ -36,15 +42,16 @@ export function extractM3u8FromUnpacked(unpacked: string, embedUrl: string): str
     try {
       const parseFn = new Function(`return ${linksMatch[1]}`);
       const links = parseFn() as Record<string, string>;
-      const candidate =
-        links.hls ||
-        links.hls4 ||
-        links.hls3 ||
-        links.hls2 ||
-        links.hls1 ||
-        Object.values(links)[0];
-      if (candidate) {
-        return new URL(candidate, embedUrl).href;
+      const prioritizedKeys = ["hls", "hls4", "hls2", "hls1", "hls3"];
+      const candidateList = [
+        ...prioritizedKeys.map((k) => links[k]).filter(Boolean),
+        ...Object.values(links),
+      ];
+
+      for (const candidate of candidateList) {
+        if (candidate && !isDeadCdn(candidate)) {
+          return new URL(candidate, embedUrl).href;
+        }
       }
     } catch {
       // Continue to next checks
@@ -55,7 +62,7 @@ export function extractM3u8FromUnpacked(unpacked: string, embedUrl: string): str
   const sourcesMatch = unpacked.match(
     /sources\s*:\s*\[\s*\{\s*file\s*:\s*["']([^"']+)["']/,
   );
-  if (sourcesMatch) {
+  if (sourcesMatch && !isDeadCdn(sourcesMatch[1])) {
     return new URL(sourcesMatch[1], embedUrl).href;
   }
 
@@ -63,12 +70,12 @@ export function extractM3u8FromUnpacked(unpacked: string, embedUrl: string): str
   const directMatch = unpacked.match(
     /(https?:\/\/[^"'\s]+(?:\.m3u8|\.txt|master\.|index\.)[^"'\s]*)/
   );
-  if (directMatch) return directMatch[1];
+  if (directMatch && !isDeadCdn(directMatch[1])) return directMatch[1];
 
   const relativeMatch = unpacked.match(
     /["'](\/[^"'\s]+(?:\.m3u8|\.txt|master\.|index\.)[^"'\s]*)["']/
   );
-  if (relativeMatch) {
+  if (relativeMatch && !isDeadCdn(relativeMatch[1])) {
     return new URL(relativeMatch[1], embedUrl).href;
   }
 

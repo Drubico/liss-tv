@@ -53,3 +53,25 @@ test("extractVidhideM3u8 prioritizes hls4 over hls2 and resolves relative URL", 
   const m3u8 = await extractVidhideM3u8("https://morencius.com/embed/s2mzberiscgi");
   assert.strictEqual(m3u8, "https://morencius.com/stream/abcdef/master.m3u8");
 });
+
+test("extractVidhideM3u8 skips dead radiantgroveproduction.cfd domain and selects alternative clean mirror", async (t) => {
+  const originalFetch = global.fetch;
+  const mockPageHtml = `
+    <script>
+      var links = {
+        hls: "https://pfabiwmfmeza.radiantgroveproduction.cfd/hls3/master.txt",
+        hls4: "https://clean-mirror.example.com/hls/master.m3u8"
+      };
+    </script>
+  `;
+
+  global.fetch = async () => new Response(mockPageHtml, { status: 200 });
+
+  t.after(() => {
+    global.fetch = originalFetch;
+  });
+
+  const m3u8 = await extractVidhideM3u8("https://morencius.com/embed/testdead");
+  assert.strictEqual(m3u8, "https://clean-mirror.example.com/hls/master.m3u8");
+});
+
