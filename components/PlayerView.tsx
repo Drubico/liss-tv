@@ -38,13 +38,18 @@ export function PlayerView() {
   const [movieUrl, setMovieUrl] = useState<Url | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const lastSavedTimeRef = useRef<number>(0);
+  const { moviePreview } = store;
+  const lastSavedTimeRef = useRef<number>(moviePreview?.startTime || 0);
+
+  useEffect(() => {
+    if (moviePreview?.startTime) {
+      lastSavedTimeRef.current = moviePreview.startTime;
+    }
+  }, [moviePreview?.startTime]);
 
   const THRESHOLD_PROGRESS_SECONDS = 180; //SEGUNDOS ANTES DE TERMINAR EL VIDEO
 
   const player = useRef<MediaPlayerInstance | null>(null);
-
-  const { moviePreview } = store;
 
   const saveWatchProgress = (currentTime: number, duration: number) => {
     return syncToLocal({

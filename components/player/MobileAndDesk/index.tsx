@@ -7,7 +7,7 @@ import {
   Track,
 } from "@vidstack/react";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 import { ArrowLeftRight, Maximize2, Minimize2 } from "lucide-react";
 import {
@@ -36,6 +36,32 @@ export default function MobileAndDeskPlayer({
   onSwitchToFallback,
 }: VideoPlayerProps) {
   const [isFullScreenIOS, setIsFullScreenIOS] = useState(false);
+  const initialSeekDoneRef = useRef(startTime <= 0);
+
+  useEffect(() => {
+    initialSeekDoneRef.current = startTime <= 0;
+  }, [src, startTime]);
+
+  const handleCanPlay = () => {
+    if (!initialSeekDoneRef.current && startTime > 0) {
+      if (ref && "current" in ref && ref.current) {
+        ref.current.currentTime = startTime;
+        initialSeekDoneRef.current = true;
+      }
+    }
+  };
+
+  const onTimeUpdateWrapper: typeof handleTimeUpdate = (detail, nativeEvent) => {
+    if (startTime > 0 && !initialSeekDoneRef.current) {
+      if (detail.currentTime >= Math.max(0, startTime - 2)) {
+        initialSeekDoneRef.current = true;
+      } else {
+        // Discard 0:00 tick during initial buffering before seek takes effect
+        return;
+      }
+    }
+    handleTimeUpdate?.(detail, nativeEvent);
+  };
 
   const canFullscreen =
     typeof document !== "undefined" && !!document.fullscreenEnabled;
@@ -96,7 +122,10 @@ export default function MobileAndDeskPlayer({
           title={title}
           poster={poster}
           currentTime={startTime}
-          onTimeUpdate={handleTimeUpdate}
+          onCanPlay={handleCanPlay}
+          onLoadedMetadata={handleCanPlay}
+          onStarted={handleCanPlay}
+          onTimeUpdate={onTimeUpdateWrapper}
           onPause={handlePause}
           onErrorCapture={onErrorCapture}
           className="w-full h-full"
