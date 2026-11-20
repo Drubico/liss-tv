@@ -186,6 +186,7 @@ export default function SmartTvPlayer({
   const playerRef =
     (ref as React.RefObject<MediaPlayerInstance | null>) ?? internalRef;
 
+  const [prevSrc, setPrevSrc] = useState(src);
   const [showControls, setShowControls] = useState(true);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -197,25 +198,43 @@ export default function SmartTvPlayer({
   // Autoplay bloqueado → mostrar overlay de inicio
   const [needsUserGesture, setNeedsUserGesture] = useState(false);
 
+  if (src !== prevSrc) {
+    setPrevSrc(src);
+    setShowControls(true);
+    setCurrentTime(0);
+    setDuration(0);
+    setPaused(true);
+    setNeedsUserGesture(false);
+  }
+
+  const canAutoHide = !paused && Number.isFinite(duration) && duration > 0;
+  const controlsVisible = showControls || !canAutoHide;
+
   // ── Auto-hide ────────────────────────────────────────────────────────────
+  const scheduleHide = useCallback(() => {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    if (!canAutoHide) return;
+    hideTimer.current = setTimeout(
+      () => setShowControls(false),
+      CONTROLS_HIDE_MS,
+    );
+  }, [canAutoHide]);
+
   const revealControls = useCallback(() => {
     setShowControls(true);
-    if (hideTimer.current) clearTimeout(hideTimer.current);
-    hideTimer.current = setTimeout(
-      () => setShowControls(false),
-      CONTROLS_HIDE_MS,
-    );
-  }, []);
+    scheduleHide();
+  }, [scheduleHide]);
 
   useEffect(() => {
-    hideTimer.current = setTimeout(
-      () => setShowControls(false),
-      CONTROLS_HIDE_MS,
-    );
+    if (!canAutoHide) {
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+      return;
+    }
+    scheduleHide();
     return () => {
       if (hideTimer.current) clearTimeout(hideTimer.current);
     };
-  }, []);
+  }, [canAutoHide, scheduleHide]);
 
   const handleCanPlay = useCallback(() => {
     const player = playerRef.current;
@@ -340,9 +359,13 @@ export default function SmartTvPlayer({
         }}
         onPause={(e) => {
           setPaused(true);
+          setShowControls(true);
           handlePause?.(e);
         }}
-        onPlay={() => setPaused(false)}
+        onPlay={() => {
+          setPaused(false);
+          setShowControls(true);
+        }}
       >
         <MediaProvider>
           {poster && <Poster className="vds-poster" />}
@@ -400,9 +423,9 @@ export default function SmartTvPlayer({
 
       {/* ── Overlay de controles estilo Netflix ──────────────────────────── */}
       <div
-        aria-hidden={!showControls}
+        aria-hidden={!controlsVisible}
         className={`absolute inset-0 flex flex-col justify-end transition-opacity duration-300 ${
-          showControls
+          controlsVisible
             ? "opacity-100 pointer-events-auto"
             : "opacity-0 pointer-events-none"
         }`}
